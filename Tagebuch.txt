@@ -1,0 +1,729 @@
+
+25.01.:
+    SOURCE: https://arxiv.org/abs/1308.0850 (Generating Sequences With Recurrent Neural Networks)
+    - Read 'Generating Sequences With Recurrent Neural Networks':
+        - Very Interesting and relevant.
+    - Insights:
+        - Text input sampling with GMM-Attention seems to be very effective
+        - By first creating a prediction of the current annotated string and then continuing sampling with more text creates the possibility to synthesize
+          from almost everything that can be predicted
+        - 'Adaptive weight noise' for regularization seems to give more realistic outputs and prevents overfitting
+        - Gradient clipping effective vs numeric instability
+        - Didn't quite understand the error metrics, need to research more
+
+28.01.:
+    SOURCE: https://arxiv.org/abs/1801.08379 (DeepWriting: Making Digital Ink Editable)
+    MEETING:
+        - Somewhat fixed the topic to this one
+        - More specific: Extending 'DeepWriting: Making Digital Ink Editable' to also take offline data
+
+    - Proposed Pipeline:
+        - segmentation of offline data
+        - skeleton creation of offline data
+        - DeepWriting on skeleton data
+        - skeleton to offline conversion, with style transfer (including background and ink type)
+
+    - Questions:
+        - Q1: Does DeepWriting work with skeleton data instead of stroke data?
+
+31.01.:
+    - Read the DeepWriting paper
+    - Not a lot to learn from, it's quite complicated
+    - Written in Tensorflow, but should be compatible
+    - Have their own databank, as they need character level annotation for the training set
+
+01.02.:
+    - Tested implementation of DeepWriting, seems to work. Not perfect, but kind of ok. Does minor mistakes.
+
+05.02.:
+    - Input set is pretty easy to read, just numpy data structures
+    - Problem: There are no good handwriting to skeleton conversion tools. The best I've found:
+        SOURCE: https://aaai.org/ocs/index.php/AAAI/AAAI18/paper/view/16533 (Fully Convolutional Network Based Skeletonization for Handwritten Chinese Characters)
+        But: No sourcecode or training data
+    - We will need to write our own implementation of that paper    
+        - Use Databank of DeepWriting to create artificial samples
+
+09.02.:
+    - Read Chinese Character Skeletonization paper
+        - More difficult than expected
+        - Should be possible to implement and train.
+            Summary:
+                - Take existing character recognizer
+                - Take side outputs of recognizer layers and upscale and combine them with techniques presented in the paper
+                - Which recognizer to take for english character handwriting?
+                    Not sure. For now just skip that step and generate samples directly from synthetic skeleton meshes
+
+    - Started implementing skeleton generation from online data
+
+11.02.:
+    - Found a problem: The handwriting data is scaled differently, some respect the 'scale' preprocessing step, some don't. Most likely due to database merge.
+        - How to solve? -> Maybe create stroke histogram to roughly detect which is which
+
+12.02.:
+    - Detected incorrect scalings by GMM
+        - FIGURE: '02-12_Scaling_GMM.pdf'
+    - Skeleton renderer done
+
+13.02.:
+    - Read Zhang Suen thinning algorithm
+        - decided to use either skimage.morphology's 'skeletonize' or 'thin' 
+    - Implemented Skeleton to graph conversion. More details in notebook.
+        - Slow, but works
+
+15.02.:
+    - Improved speed of skeleton to graph conversion by magnitudes. Problem was python overhead of list operator []
+
+18.02.:
+    - Implemented generating strokes from skeleton
+
+19.02.:
+    - Implemented strokes sorting
+    - Implemented annotating strokes by char, eoc and and bow
+
+20.02.:
+    - Implemened points generation from strokes
+
+21.02.:
+    - Implemented conversion back to dataset format
+    - EXPERIMENT 1550765722: First training run with generated strokes
+        - Somewhat converged, but KLP didn't
+        - Generated handwriting was 'syntactically' correct (made strokes, pen-up events and eoc signals), but the content was non-existant
+        - Need to look into prediction prop-distribution map for further analysis, first intuition is that small line fragments are the problem
+
+01.03.:
+    - Changed 'thin' to 'skeletonize', 'thin' made problems with some intersections
+    - Implemented joining of 4-way connections
+    - Implemented joining of 3-way connections
+    - Removed sub-length-2 parts
+
+08.03.:
+    - Fixed bug where multiple points in one stroke could not get generated
+    - EXPERIMENT 1552050989: Training after implementing connection joining
+        - Again, KLP didn't converge, and EOC loss is very noisy
+        - Might be because of the constant pen velocity. Real strokes slow down in the end, which the network can use as information that the stroke is over soon
+    - Bugfixes. Reworked joining of 3-ways, needed further stepping along the path to become robust    
+    - EXPERIMENT 1552064561: Again, after minor bugfixes, now with debug images logged
+        - Don't seem very telling, need to see reference
+
+13.03.:
+    - It seems too tedious to optimize the strokes further without knowing what prevents the convergence
+        -> Go the other way round, take the real strokes and abstract them until convergence doesn't happen any more
+    - Now follow a number of experiments that try to find exactly the reason:
+        - EXPERIMENT 1552469988: Control experiment, just passing the data through our routine without modifying it. Should converge.
+            -> Converged.
+14.03.:
+        - EXPERIMENT 1552608610: Another control experiment, testing conversion to stroke-format. Should converge.
+            -> Converged
+15.03.:
+        - EXPERIMENT 1552642756: Resampled to constant segment length (penSpeed:6)
+            -> Diverged in KLD, just like previous failures. Still, some letters were recognizable.
+            -> Is the constant segment length the problem?
+                -> We should try to 'mimic' variable segment lengths by enforcing constant acceleration instead of constant velocity
+        - EXPERIMENT 1552651857: Same as 1552642756, but with KLD-loss weight to 3 (instead of 1), to force that loss down
+            -> Did not converge, again.
+    - OPEN QUESTION: Why does the algorithm care about variable line length?
+
+    - INSIGHT:
+        It seems necessary for the algorithm to somehow 'model' the stroke velocity. To do that, we first need to have a smooth version of the curve.
+        Therefore we first need to implement such a curve smoothing.
+    SOURCE: https://pdfs.semanticscholar.org/9f5d/fa77f61a4dc87faa243f995e2092ddb3f521.pdf (Efficient curve fitting)
+
+18.03.:
+    - INSIGHT:
+        Revoke the insight from 15.03.: It is NOT necessary to create a smooth version of the curve. Instead, we can run an A* shortest path search on a 4D version of the curve.
+        For details, look at the notebook.
+
+19.03.:
+    - Implemented Dijkstra version. Works, but is WAY too slow.
+        -> Try again with optimised version
+    - Optimized version: Works! Still a little bit too slow.
+        -> Implement in C
+    - Implemented Python to C interface
+    TODO: write documentation of optimized version (in notebook)
+
+20.03.-25.03.:
+    - Worked on Introductory Talk
+
+25.03.:
+    - Introductory Talk, got received positively
+    - Did some measurements, saw not only Dijkstra but also reachability matrix computation is too slow
+    - Implemented reachability matrix computation in C
+    - Implemented 4d dijkstra smoothing in C, added Unittest
+        => Worked! Code is ~1000x faster than python version.
+
+26.03.:
+    - EXPERIMENT 1553583948: Testing newly written smooth resampling.
+        Resampling settings: deviationThreshold: 1.0, maxAcceleration: 3.0
+        -> Created believable text. Still some errors, though. Had the KLD loss weight upped to 3, mistake?
+    - EXPERIMENT 1553589550: Same again, KLD loss weight now 1
+        -> Again, somewhat converged. Still very noisy outputs.
+    - INSIGHT: Maybe the constant max-acceleration is a problem?
+    - Made max acceleration dynamic by scaling it with the height of the letters
+    - Made pre-sampling dynamic, based on acceleration value
+    - EXPERIMENT 1553605447: Dynamic deviation and acceleration
+        Settings: deviation, presampling = 1/3*acceleration, acceleration = 0.025*height
+        -> Still bad. But, the higher resolution seems to have increased the convergence.
+        We should do one more try with even higher resolution.
+
+27.03.:
+    - EXPERIMENT 1553673933: Fine tuning of previous experiment
+        Settings: deviation=acceleration, presampling = 1/3*acceleration, acceleration = 0.020*height
+        -> Crashed, OOM. 0.025 seems to be the limit.
+    - EXPERIMENT 1553681016: Last try, again with 0.025 acceleration/height, but still bigger deviation
+                     and early stopping at 10k
+        Settings: deviation=acceleration, presampling = 1/3*acceleration, acceleration = 0.025*height
+        -> Converged somehow, created believable images, but sometimes forgot whole letters and made
+           spacings between letters very inconsistent
+    - INSIGHT: There are multiple problems with DeepWriting.
+        The first one is it's usage of EOC symbols to switch to the next character. This renders the network
+        unable to see the next character and therefore prevents it from looking into the future.
+        (Which is necessary sometimes).
+        Secondly, if its EOC generation isn't perfect, it might happen that it generates two EOC symbols in a row,
+        which causes one entire character to be skipped, without major loss consequences.
+        -> We should definitely look into Graves' solution of this problem.
+
+28.03.:
+    - Published Python C template, added Python C++ template
+
+29.03.:
+    - Rewrote graph_to_strokes with new data structures
+    - Rewrote strokes sorting
+
+31.03.:
+    - Fixed 6+-junctions not getting resolved
+    - Fixed multiple problems with resolve_strokes
+        * preventing creation of circular dependencies
+    - Fixed 'O's getting deleted, generally fixed circular paths
+    - EXPERIMENT 1554070504:
+        Fixed everything in normal pipeline, first real test run with skeleton images and smooth resampling
+        -> Somewhat converged! 
+            * formed letters
+            * formed words
+            * alignment between letters is off, seems to not understand penup-moves
+        
+01.04.:
+    - MEETING:
+        -> Good so far, read paper about temporal following of objects ("Start, Follow, Read" - Wigington et al.)
+        -> Implement Graves
+        -> Look into whether it would make sense to predict lines from CNNs directly
+        -> IDEA: train modified Graves:
+            - Currently:
+                Input Text, output Strokes
+            - Modified:
+                Input Image + Text, output: Strokes
+            Would this make an offline to online conversion?
+            Would this even work without text?
+            
+    - SOURCE: Graves implementation https://github.com/sjvasquez/handwriting-synthesis
+
+02.04.:
+    - Forked and updated sjvasquez's handwriting-synthesis to newest tensorflow version
+    - Wrote database conversion for graves handwriting-synthesis
+    - INSIGHT:
+        The more I experiment with DeepWriting's dataset, the more problems I find.
+        The 'texts' don't match the written text, they seem to have forgotten to cut it.
+        
+03.04.:
+    - Created sample styles from our dataset
+    - EXPERIMENT 466416: Training run of our skeletonized and converted dataset on graves.
+        -> SUCCESS!!!
+        Result looks very good and convincing.
+        This means we can now continue with the next task! (Conversion of images to skeletons)
+
+==== SECOND PART =====
+08.04.:
+    - Wrote Ideas for style transfer and skeletonization in Ideas.txt
+        Summary:
+            - Look into Pix2Pix
+            - Implement Pix2Pix based conversion of Skeletons to real images (Shouldn't need annotation)
+            - With the resulting network, train reverse network
+
+09.04.:
+    - Read Pix2Pix paper
+    - INSIGHT:
+        - Pix2Pix requires paired data, which we don't have.
+        - Alternatively, we could use CycleGAN, which doesn't require paired data.
+          Nonetheless, Pix2Pix has a couple of really good approaches that we should consider,
+          like the PatchGAN discriminator
+        - Found a repository (officially linked from Pix2Pix Github) that combines the two:
+            https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
+    - SOURCE: Pix2Pix
+    - SOURCE: CycleGAN
+    - SOURCE: Implementation https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
+    -> Try to train CVL database with skeletons to achieve a conversion maybe?
+
+    - EXPERIMENT 1554849142: First training of CycleGAN with default settings without scaling
+        -> G_B couldn't keep up. the very hard edges of the skeleton were too unique.
+        -> Add gaussian blur?
+    - EXPERIMENT 1554850656: retraining CycleGAN with blur=0x1
+        -> Worked a lot better, seems like CycleGAN can't deal with high frequency noise
+        -> Sadly reached overfitting stage. Created lines out of nowhere.
+           Most likely caused by the Discriminator picking up on differences in the actual writer style instead
+           of just pen+paper.
+        -> Seems like we DO need annotated data
+        -> Next step ... artificial data?
+    -> IDEA: Create training set with photoshop brushes! (Can Photoshop be scripted?)
+
+14.04.:
+    - Read into Photoshop scripting
+        -> VBScript looks promising
+    - Created text version of dataset
+    - INSIGHT: Photoshop scripting is not powerfull enough for what we need. Scrap that idea.
+	
+15.04.:
+	- MEETING:
+		So far pleased with the progress. Next step is the skeletonization.
+		Implementing the paper completely from hand seems too tedious, we should rather try to find alternatives.
+	
+16.04.:
+	- INSIGHT:
+		- Generating a labeled dataset from online data is too tedious
+		- New approach: Use simple conventional methods to skeletonize CVL
+		- Then, train pix2pix on CVL
+		- Next step, use trained pix2pix to create labeled CVL-Like dataset from online data
+		- This should conclude part 2 of the master thesis, creating realistic output images
+
+17.04.:
+    - Wrote skeletonization via thresholding and opening/closing for CVL
+    - Wrote preprocessor for pix2pix
+    - EXPERIMENT 1555511818: Trained pix2pix on primitively skeletonized CVL to CVL.
+        - Skeletons blurred with gaussian(1)
+        - Size: 256, no preprocessing, no flipping
+        -> Huge success!! It even learned to correct the mistakes of the skeletonization!
+    - INSIGHT: Again, seems to work best if skelettons are blurred with a gaussian of 1.
+    - QUESTION: Does Pix2pix suffice to learn it the other way round?
+
+    - IDEA: Can we reverse the pix2pix network?
+        - Train on generated color images to online skeleton data with gaussian
+        - Second, train a network to de-gaussian
+    - IDEA: Why can't we use pix2pix to do a style transfer?
+        -> Add side input to pix2pix to do a _conditional_ transfer.
+        -> The side input also needs to be added to the discriminator
+
+18.04.:
+    - INSIGHT:
+        Pix2Pix seems to work very well for generating images!
+        However, it is currently limited to 256x256 patches.
+        -> Look if it is possible to change the size afterwards
+    - INSIGHT:
+        Except of the lowest 1x1 layer, everything in pix2pix's u-net is convolutional.
+        -> Just scale the lowest layer. Average the values of that layer so that we can 'broadcast' global information
+           to all pixels, like pen color    
+        -> Needs retraining on larger images. Currently trained network doesn't know how to deal with
+           those broadcasted informations
+    - EXPERIMENT 1555579672: Trained pix2pix on generated CVL-like to real skeleton
+        -> Goal: Find out if pix2pix can do skeletonization
+        -> Seems good! Now, try to refine skeletonization
+
+19.04.:
+    - EXPERIMENT 1555693541: Trained pix2pix on generated and real blurred skeletons to unblurred skeletons
+        -> Goal: Find out if pix2pix can generate sharp skeletons 
+        -> Can NOT reliably
+    - INSIGHT: pix2pix (and most CNNs) seem to be pretty bad at generating high frequency aliased images,
+               like binary skeletons. To produce meaningfull results, it needs to be blurred first, to filter out
+               high frequency noise.
+
+20.04.:
+    - INSIGHT: For the final skeletonization step, traditional systems seem to preform better.
+    - SOURCE: "A pseudo-skeletonization algorithm for static handwritten scripts" (Emli-Mari et al.)
+
+22.04.:
+    - Generated a 2048x256 dataset for skeleton->cvl conversion
+    - EXPERIMENT c/1555940171: First attempt to train 2048 dataset on unmodified pix2pix.
+        - Expected: Will fail to create cross-image consistency, as all datapaths have a max range of 256 pixels
+        - Expected2: Will create zero variance between runs, as it cannot have long-distance consistency and yet
+                     gets punished for not having consistency
+        - Result: None of the expected happened. It seems to just work.
+        -> Implement Broadcast central vector later, for now just enjoy that it worked
+    - INSIGHT: Why did it work?
+        -> Possibly because no global communication is needed. Randomness comes from dropout, which seems to
+           enable/disable filters consistently across the entire image.
+        -> Might become a problem once we have offline text images with noise, as spreading the information
+           about noise and forground background style might be important to be broadcast
+
+23.04.:
+    - c/1555940171 worked, that means we now have a working size agnostic skeleton->image converter!
+        -> Part3 of our thesis done! YAAAY!
+    - Implemented noise augmentation for pix2pix
+    - EXPERIMENT c/1556032416: Size agnositc skeletonization with !noise augmentation! using pix2pix
+        - WORKED! We now have a skeletonization.
+
+24.04.:
+    - IDEA: Convert blurred skeletons to binary by optimization problem.
+        - We know the gaussian radius, and the generated version seems to also generate the same radius
+        - So the optimization problem is:
+            sk_bin - binary skeleton
+            sk_blur - blurred skeleton
+            blur() - blurring operation
+            
+            argmin_sk_bin norm(sk_blur - blur(sk_bin))
+            -> Meaning, find the binary image that after blurring matches the blurred image the most
+            -> This can be done iteratively:
+                * Initialize the result image to an empty image
+                * Flip the pixel that improves the result the most
+                * Repeat until no flippable pixels are left
+                * If necessary, run a search if we can flip two pixels simultaneously
+                Also, optimize that algorithm and implement it in C++, will be pretty computation heavy
+    - EXPERIMENT: Tried to implement preceding idea
+        -> Did NOT work. Algorithm too unstable, causes too many artifacts and line breaks
+
+    - INSIGHT:
+        - Thresholding seems to be very consistent. Trial and errors based on the trained network 1556032416
+          yield a thresholding value of >= 195.
+
+    - Created datasets/mine and added two handwritten pictures. Those will be useful for the thesis later.
+
+    - EVALUATION:
+        Direct comparison of cvl/skeletons_primitive and cvl/skeletons_nn. Looking good!
+
+25.04.:
+    - EXPERIMENT c/1556230278: Trying to train skeleton->cvl again, this time with neural network 1556032416 generated skeletons!
+    
+26.04.:
+    - Set up a results repo using git-lfs (github.com/Finomnis/MasterThesis-Results) 
+    - Implemented first stage of finished pipeline (skeletonization)
+        - No problems, pretty simple adaptation of the pix2pix library
+    - Implemented second stage of finished pipeline (sampling)
+        - No problems, just plug and play with the existing code from previous part
+
+27.04.:
+    - Implemented third stage of finished pipeline (graves)
+        - First problems:
+            * had to rewrite the 'Hand' class of graves
+            * Found no way to free gpu memory, might be stuck until the process ends. Run in different process?
+            * Doesn't work with special characters, needs retraining
+            * Doesn't work too well with the skeletonized real images, retrain on those specifically
+    - Implemented alignment for graves output
+        - No problems
+    - Implemented rendering to blurred image
+        - No problems
+    - Implemented pix2pix stage from blurred image to CVL
+        - No problems
+    - Saved first pipeline run: 1556390842_first_full_run.pdf
+
+28.04.:
+    - INSIGHT: After trying the algorithm with my brothers handwriting, the graves algorithm failed pretty hard.
+        It became apparent that the inference algorithm only works with handwritings that it was previously trained on.
+        This is mostly implementation specific, because the given implementation uses the exact amount of pen points to
+        prime the writer. If an unknown sample gets used for priming, it generates the wrong amount of pen points and
+        priming and generation letters get mixed up.
+    - QUESTION: How can we solve that problem?
+        * Detecting the end of the priming sequence in a different way
+        * Re-training the network to include the sample
+
+03.05.:
+    - Started working on an improved input for graves, generated from IAM-Offline
+    - INSIGHT: Found problem with thicker lines in IAM-Offline. Will have to re-train skeletonizer with artificial thick lines.
+        Fail Example: 1556895388
+    - Implement conversion from online skeltons to thicker lines
+    - EXPERIMENT 1556985661:
+        Re-training pix2pix skeletonization with additional thicker lines
+        -> FAILED
+
+09.05.:
+    - After quite some trial and error, it seems like the thicker lines don't make the pix2pix converge as well.
+      -> Decided to remove the erroneous images from iam-offline instead of changing the skeltonizer
+
+    - Went through all skeltonized iam-offline forms and sorted out the failures
+    - Generated skeleton cache for iam-offline, took forever
+
+10.05.:
+    - Finished iam-offline to graves converter
+    - EXPERIMENT: Re-training graves with iam-offline
+        Success!
+    - Full Pipeline run first result: 1557591201
+    - INSIGHT of result: Both worked and didn't work
+        * Trained graves now manages to match the input data from iam-offline
+            -> The problem was, that the network lost the connection between stroke and character during
+               priming, and therefore started the generation at the wrong letter
+            -> That means that the new trained network is better suited for the real world data
+        * Still many artifacts. Reason: Skeletonization and sampling produces inconsistent results
+            -> Graves training input cannot learn underlying principles of letters, as thay very too much
+            -> Graves works well on online data, because different writing styles only vary in subtle ways,
+               but for offline data, line breaks occur and create irregularities.
+            -> Solution? For now: None, is good enough for now. Otherwise:
+                - Better skeletonization
+        * No matter what, analysis of the errors should be an entire chapter in the thesis
+
+    -> FINISHED BASE REQUIREMENTS OF THESIS
+    -> Took a break
+
+22.05.:
+    - Read 'SPADE', hopefully it enables conditional visual style transfer
+        -> Seems like it should work. Only Problem: it doesn't work with dynamic sizes, only static sizes.
+    - Problem still: How to get a dataset?
+        -> IAM-Offline + CVL, combined with sampled backgrounds?
+    - Started to implement dataset generator for SPADE
+
+26.05.:
+    - Generated 256x256 CVL-dataset + backgrounds for SPADE
+
+27.05.:
+    - EXPERIMENT 1558946524: Training spade with 256x256 cvl colored images, using VAE
+        -> Takes FOREVER. (Days over days on Multi-GPU)
+        RESULT: Looks good, still artefacts around the edges of the text, didn't learn to produce correct text color
+            What now?
+            -> Maybe try to implement a custom pix2pix version, seemed to work pretty good
+
+07.06.:
+    - Training takes too long, will start writing text during waiting times.
+        -> repo/latex/thesis
+
+    - SOURCE: https://gombru.github.io/2019/05/14/text_style_transfer/
+        -> In related work!
+
+09.06.:
+    - Pix2pix seemed to work best so far, so I decided to add a conditional style input to pix2pix.
+      This should be a little work, but hopefully it pays off.
+
+11.06.:
+    - Started implementing the pix2pix extension.
+        * Added a second version of the Pix2Pix generator, called cond_pix2pix
+        So far, I only modified the network to pass an extra data vector all the way down to the smallest UNet layer.
+        Then, I added a layer there to insert that external data.
+
+    - Started writing the Style extraction network
+
+12.06.:
+    - Finished style extraction, cond_pix2pix now has another downsampling CNN that extracts style information.
+      Gets merged at the innermost UNet layer.
+    - EXPERIMENT 1560339997: conditional pix2pix on cvl_nn_256
+        Expected: might somewhat work, but the discriminator cnn doesn't have the style input yet.
+                  Therefore only the L1-Norm discriminator will pick up on it, not sure if that's enough.
+        -> Never converged, not even after 180 epochs.
+        -> Show graphs in thesis! Good graphs. Shows the problem clearly.
+        -> Problem: L1 loss is always high, because the network doesn't have the possibility to recreate the original sample.
+           That seems to work agains the GAN part, causing the GAN loss not to converge
+        -> Nonetheless, the output looks visually convincing for human eyes.
+        -> The colors don't match, though. L1 loss wasn't enough to train the conditional input.
+
+    - EXPERIMENT 1560327582: conditional pix2pix on cvl_nn_256 with style information in discriminator
+        -> Converged perfectly!
+        -> The conditional input into the GAN seems to have been the missing part
+        -> Colors match
+        -> The output seems 'smoothed' or 'smeared', compared to the previous experiment. Question: What causes that?
+        -> IMPORTANT: There are signs that the conditional doesn't only represent color, but also shape!!
+            -> It contains information that helps pix2pix with fixing the skeletonization errors!
+        -> Outputs look almost identical to references.
+        -> NICE GRAPH! Include in thesis!
+
+    - EXPERIMENT 1560343488: conditional pix2pix on colored_cvl_nn_256 with style information in discriminator
+        -> first result: text color did NOT converge!
+        -> Seems like the network has larger issues with text color if background is also colored.
+        -> Solution: as already mentioned later, we should maybe do text/background seperation in a separate step
+        -> After 84 epochs: TEXT COLOR STILL WRONG
+            -> Stopped, counting as FAIL
+
+    - INSIGHT: pix2pix seems to really struggle with high frequencies, like thin lines on white paper.
+        -> Will remove backgrounds with sharp edges! Seems to be a limitation we can't get around with the current networks.
+
+    - Implemented graphical visualization tool for pix2pix-like loss logs
+
+
+13.06.:
+    - Moved visualization tool to extra class, added neat averaging with min-max shadows
+
+    - Generated colored_cvl_nn_2048, WITHOUT high frequency background images     
+
+    - EXPERIMENT 1560441285: conditional pix2pix on colored_cvl_nn_2048 with style information in discriminator. Won't mention style information in discriminator any more, from now on default.
+        - This time without high-frequency background images, as mentioned.
+        -> Immediate apparent problem: REPETITIONS!
+        -> Repetitions didn't get better after 24 hours of training. ->FAIL
+
+    - INSIGHT: The pix2pix network does NOT have the capacity to scale. When presented with a white background and constant dropout, it is DETERMINISTIC.
+               Combined with the fact that the network only has a range of 256, it is IMPOSSIBLE for the network to NOT become repetitive.
+               -> Show example images in thesis
+        -> Solution? Maybe don't average over the style image, instead just pass the style vector into it directly
+           -> How does that play with the discriminator? -> Not sure
+
+    - Another possible solution:
+        - We have a working conditional skeleton->cvl network.
+        Maybe we should add another pipeline layer for foreground/background separation, and tackle those problems independently!
+
+    - INSIGHT/PROBLEM
+        Pix2Pix doesn't have a TEST set evaluation during training *ANYWHERE*.
+        How bad is that?
+            -> will most likely cost me points in my thesis, either don't really show graphs or find a solution, e.g. retrain with test set output
+
+14.06.:
+    - Generated foreground/background extraction dataset
+    - EXPERIMENT 1560510053: Foreground extraction using unconditional pix2pix
+        Seems to work really well!
+
+    - EXPERIMENT 1560508961: Background extraction using unconditional pix2pix
+        Doesn't seem to work as well ... Recreating missing background seems to be a lot harder of a problem than just removing background, duh.
+        To be determined.
+        -> Seemed to work reasonably well, but CREATED ARTIFACTS.
+            -> Might have run in an incorrect local minimum. Restarted training with more compute power.
+
+    - EXPERIMENT 1560604893: Background extraction, again. More compute power.
+        If it still doesn't work, maybe just delete the text manually and run NVidias hole filling network!
+        -> Didn't work!
+
+20.06.:
+    - Started implementation of NVIDIA Infilling with Partial Convolutions paper
+    - Wrote mask generator using N-Body simulation
+
+21.06.:
+    - Continued implementation of NVIDIA Hole-Filling
+        - implemented data loader
+        - implemented network
+        - saw that nvidia's layer is missing ConvTranspose2D, implemented that by modifying existing code
+        - implemented losses
+
+22.06.:
+    - Continued implementation of NVIDIA Hole-Filling
+        - implemented further top modules
+        - Added Logger and train.py
+        - First runs were a success
+    - INSIGHT:
+        pix2pix's last layer is tanh(), which REQUIRES data to be -1:+1 normalized.
+        This is not the case for our network. Therefore we need to take out the tanh.
+        -> After a first test, it seems that leaving out tanh doesn't make any qualitative difference.
+    - SOURCE: places2 dataset
+    - SOURCE: Nvidia pconv hole filling
+
+    - EXPERIMENT 1561256576: Training of pconv-infill with places2
+        -> Training good, ready for fine-tuning after 8 epochs
+        -> Fine-tuning reduced 'tv' loss significantly, while increasing all other losses temporarily
+        -> After testing on real-world data, it seems that the network is very susceptible to salt+pepper noise in the mask
+        -> ! Created additional salt+pepper noise masks. Continue training with those.
+
+29.06.:
+    - Found problems with Foreground/Background extraction:
+        * Works flaweless on training data
+        * Doesn't work at all on real world data. Why? Because Skeletonization works ...
+            - Assumption in training data: output_image = background - (1 - foreground). Maybe this is too far away from reality?
+            -> For now use training data for visualization, but mention problems in thesis. It's just the bonus task.
+            -> Retrain if there is enough time, with better training set.
+            -> Change loss functions to style+perceptual loss.
+        
+02.07.:
+    - EXPERIMENT 1562060195: Training of pconv-infill with dropout, increased ngf from 64 to 128
+
+26.07.:
+    - Didn't have any entries for a while, as I was primarily focused on writing the actual thesis.
+    - Realized we didn't actually do numerical testing of the different metrics on the writer style transfer network. We should do that.
+
+
+29.07.:
+    - Wrote iam-online to graves converter and re-skeletonizer
+    - EXPERIMENT 1564411620: Training of graves with skeletonized iam-online data
+    - EXPERIMENT 1564504872: Training of graves with reskeletonized iam-online data
+
+01.08.:
+    - FINAL MONTH!
+    - EXPERIMENTS: Comparison of different sorting orders by training graves on it
+        - 
+
+02.08.:
+    - EXPERIMENT 1564732761: Training of conditional CVL generator for variable sizes
+        -> Seems like I forgot that I never did that before
+        -> FAILED!        
+
+04.08.:
+    - HUGE PROBLEM!
+        -> The conditional pix2pix 1564732761 did NOT converge correctly! It disregarded the style input and overfit to the 
+           input skeletons instead. Sadly, this is most likely also true for 1560327582.
+        -> Potential solution: reduce the layer depth of the network as far as possible. The trained network doesn't use the lower layers anyway, so
+           remove the networks ability to pass global information through those layers.
+            -> This should have the effect that the network cannot synthesize globally consistent images without using the style input.
+
+    - EXPERIMENT 1564924326: Retraining conditional pix2pix with depth 4 instead of 8 (meaning: 16x16 -> 1x1)
+        -> Failed again, still overfitting on training skeletons
+    
+    - More possible solutions:
+        - Max pooling instead of average pooling, as average pooling might put too much weight on empty space
+        - Use larger dataset to prevent overfitting -> retrain skeletonizer, generate new dataset from cvl test set
+        - Reduce feature size of encoder. Overfitting possibility is too large with current feature size
+          -> Implement an asymmetric UNet block!
+
+05.08.:
+    - Implemented max pooling in style extraction, implemented asymmetric convolution layers
+    - EXPERIMENT 1565028332: Training asymmetric+maxpooling with 4 layers, down: (16,32,64,64); up: (64+style,256,128,64), style:(64,128,256,512,512...)
+        Didn't converge again
+06.08.:
+    - Reduced power of the style extractor, extracted EVERY LEVEL of the style extractor
+    - EXPERIMENT 1565169872: Use EVERY level of the style extractor as style information
+        SUCCESS.
+
+12.08.:
+    - EXPERIMENT 1565600196: Use pen style transfer on colored images
+        -> SUCCESS!!! Seems like that also fixed the problems of the background style transfer.
+        -> Not a lot of detail yet. Have to rewrite to make the network deeper for the background generation.
+
+    - EXPERIMENT 1565808731: Same, but with 2048 images.
+        -> Failed :( Reason: Bad dataset?
+
+14.08.:
+    - Rewrote background transfer network to go deeper for background
+        - EXPERIMENT 1565861868: on 256 images
+        - EXPERIMENT 1565809901: on 2048 images
+            -> Failed :( Bad dataset?
+        - EXPERIMENT <>: Control experiment on CVL dataset
+            -> Success. Something else must go on, but I'm done.
+
+18.08.:
+    - Unable to reproduce results of 1565600196
+        -> EXPERIMENT 1566142293: Re-training of the same network, meaning the Colored Background Dataset with the default Pen Style Transfer Network
+
+TODO:
+    - DONE Create background transfer network (Small test successful!)
+    - DONE Start training
+    - Look at training results
+    - DONE Add results to resampling, already created example svgs
+    - Finish Background Transfer Section
+
+TODO:
+    - write next chapter (Writer Style transfer)
+    - implement automatic pipeline to create and test different configurations on graves
+
+TODO:
+    - implement training for NVIDIA hole-filling
+    - train
+
+TODO:
+    - Add partial convolution based padding to pix2pix
+    - Add perceptual loss and style loss to pix2pix background extraction
+    - Maybe add hole filling loss to pix2pix background extraction
+        Source for all: https://github.com/NVIDIA/partialconv, inpainting paper
+        -> Should be quite easy to implement
+
+
+TODO:
+    - Implement extension of pix2pix (idea from 17.04.)
+    - Prove that the trained conditional pix2pix actually does a style transfer by visualizing with T-SNE (https://blog.sourced.tech/post/lapjv/)
+    - Retrain graves with skeletons that went through the entire pipeline before
+    - Implement full pipeline
+    - STYLE TRANSFER: Problem: No dataset. How to solve?
+
+DONE:
+    - Try if pix2pix can do gaussian skeletons -> plain skeletons
+        -> Yes, can
+    - Understand how pix2pix network works and if we can dynamically change the size of a trained network
+        -> By globally propagating the 1x1 layer
+    - Change pix2pix's size to 2048*256
+        -> Done
+    - Generate Real Skeletons -> Fake CVL again, then Real CVL -> Fake Skeletons
+        -> Done    
+    - Generate artificial dataset from online skeletons + trained pix2pix
+        -> Done
+    - Try to implement skeleton generation with pix2pix
+        -> Works, but only for blurred skeletons
+
+TODO further:
+    - Read "Start, Follow, Read" paper
+
+TODO:
+    - IMAGE TO SKELETON IMAGE
+        - Implement network from Skeletonization paper
+        - Pretrain network from Skeletonization paper
+        - Train network from Skeletonization paper
+    - SKELETON IMAGE TO STROKES
+        - Implement (1/2)
+    - ARTIFICIAL TRAINING DATA
+        - Write artificial handwriting samples generator
+    - TOOLS AND ALGORITHMS
+        # Implement Skeleton Image to Graph extraction algorithm
+        - Implement Graph to Strokes algorithm
+    

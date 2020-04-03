@@ -1,0 +1,41 @@
+Ideas for skeletonization:
+	- Take existing database (like CVL database)
+	- Database should be clean enough to generate skeletons directly from database
+	- Add noise to inputs
+	- Train skeleton generator from noisy images to make it robust
+		- Add noise that looks like stains, shadows of letters, gaussian noise, etc.
+	- Better: generate from Online Data. Take offline data as reference
+	- Even better: Do real image generation first!!!
+		Input: Skeleton + Noise
+		Output: Generated real images
+		Discriminate between generated and real handwriting.
+		-> NO ANNOTATION NECESSARY, this process should be UNSUPERVISED!
+		-> Look into pix2pix to get an understanding of how to properly set up such a pipeline
+		-> Only problem might be that writing style of skeletons and images differs,
+		   discriminator might pick up on that
+		-> Maybe combine multiple datasets?
+			-> IAM-Offline, CVL
+			-> Make all of them black/white
+		-> After looking at CVL, it should be sufficient on its own
+		- We then have a skeleton->black/white converter
+		- Then, train inverse direction.
+			This should get us high-quality black/white to skeleton.
+		- Then, second iteration: Color->B/W->Skeleton, this should get us
+			high quality Color-Skeleton pairs.
+		- Retrain the pipeline with Color->Skeleton directly, add noise to make
+		    it robust
+
+Ideas for style transfer:
+	- GAN with 3 inputs: 2*real (r1, r2), 1*artificial (a1).
+		Discriminator: d(input)
+		Distance: dist(in1, in2) (2-norm)
+		Loss: dist(d(a1),d(r1)) + dist(d(a1),d(r2)) - dist(d(r1),d(r2))
+		-> We try to minimize the distance of the aritficial to the real samples,
+		   while maximizing the distance between the real samples
+		-> 'Odd one out'-loss
+			Not sure if anyone got the idea already, but this loss should allow
+			conditional training of GANs
+	- Other approach: 2*real (r1, r2), 1*artificial (a1).
+		Generator: r1+skeleton in, a1 out, r2 as comparison.
+		Discriminator: r1 in, discriminate between a1 and r2
+		-> I like this one more, actually!

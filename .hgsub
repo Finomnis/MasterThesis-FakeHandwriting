@@ -1,0 +1,5 @@
+src/ext/pix2pix = [git]git@github.com:Finomnis/pytorch-CycleGAN-and-pix2pix.git
+src/ext/graves = [git]git@github.com:Finomnis/handwriting-synthesis.git
+src/ext/graves = [git]git@github.com:Finomnis/handwriting-synthesis.git
+src/ext/inpaint = [git]git@github.com:Finomnis/inpaint-pconv.git
+results = [git]git@github.com:Finomnis/MasterThesis-Results.git

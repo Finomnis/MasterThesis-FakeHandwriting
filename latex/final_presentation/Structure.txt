@@ -1,0 +1,65 @@
+- Introduction
+    - Thesis name (offline vs online)
+    - Motivation
+    - Goals of this thesis
+
+- Pipeline Overview
+
+- Stage 1: Skeletonization
+    - Overview Slide
+    - Pix2Pix background
+        - Usage Examples
+        - Requirements (Pairwise annotations)
+        - U-Net
+        - L1 Loss benefit
+    - CycleGan
+        - Usage Examples
+        - Advantages vs Pix2Pix (No pairwise annotations) -> Cycle consistency
+        - Cycle Consistency details
+    - CycleGAN Experiment
+        -> Failure image
+        - Reasons
+    - Knowledge Transfer
+    - Pix2Pix Experiment
+        - Knowledge transfer steps
+    - Existing Problems
+
+- Stage 2: Conversion to Online
+    - Overview Slide
+    - Graph Refinement
+        - Step by step. Maybe animation of a complex example
+    (- Maybe quick slide about missing details: Cycle breaking, ordering)
+    - Resampling: Constant Velocity
+    - Resampling: Max Acceleration
+        - 4D Djikstra => Rough math outline, nice animation
+    - Real results image
+
+- Stage 3: Writer Style Transfer
+    - Overview Slide
+    - Graves Background
+    - DeepWriting Background (briefly)
+    - DeepWriting Experiment
+        - Constant Velocity vs Max Acceleration
+    - Graves Experiment:
+        - Success
+    - Train with Real Skeletons vs Reskeletonized
+    - Different Styles Demonstration
+    - Existing Problems
+
+- Stage 4: Pen Style Transfer
+    - Overview Slide
+    - Modifying pix2pix
+        - Style extractor,
+    - Modifying depth and channels, assymmetric unet
+    - Results
+
+- Stage 5: Background Style Transfer
+    - Overview Slide
+    - SPADE background
+    - Conditional Pix2pix vs SPADE
+    - Multi-Step
+        - Overview + Talk about it a little
+
+- Conclusion
+    - Goals of this thesis
+    - Future Work

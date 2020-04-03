@@ -1,0 +1,67 @@
+\mode<presentation>
+
+\RequirePackage{iftex}
+
+\ifXeTeX
+
+\RequirePackage{fontspec}
+
+\setsansfont[Ligatures=TeX,
+  BoldFont={* Semibold},
+  BoldItalicFont={* Semibold Italic}]
+  {Myriad Pro}
+
+\else
+
+\renewcommand\sfdefault{MyriadPro-LF}
+
+\DeclareFontFamily{T1}{MyriadPro-LF}{}
+\DeclareFontFamily{OMS}{MyriadPro-LF}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{m}{n}{<->MyriadPro-Regular-tlf-t1}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{m}{it}{<->MyriadPro-It-tlf-t1}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{sb}{n}{<->MyriadPro-Semibold-tlf-t1}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{sb}{it}{<->MyriadPro-SemiboldIt-tlf-t1}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{bx}{n}{<->MyriadPro-Semibold-tlf-t1}{}
+\DeclareFontShape{T1}{MyriadPro-LF}{bx}{it}{<->MyriadPro-SemiboldIt-tlf-t1}{}
+\DeclareFontShape{OMS}{MyriadPro-LF}{m}{n}{<->ssub*cmsy/m/n}{}
+
+% delay update in order to ensure that \setbeamertemplate or \useinnertheme is
+% not completely overriden
+\AtBeginDocument{%
+  \DeclareMathAlphabet{\mathbf}{\encodingdefault}{\mathfamilydefault}{sb}{n}
+  \DeclareSymbolFont{operators}{\encodingdefault}{\mathfamilydefault}{m}{n}
+
+  \DeclareSymbolFont{greekletters}{OT1}{lmss}{m}{n}
+
+  \DeclareMathSymbol{\Gamma}  {\mathalpha}{greekletters}{"00}
+  \DeclareMathSymbol{\Delta}  {\mathalpha}{greekletters}{"01}
+  \DeclareMathSymbol{\Theta}  {\mathalpha}{greekletters}{"02}
+  \DeclareMathSymbol{\Lambda} {\mathalpha}{greekletters}{"03}
+  \DeclareMathSymbol{\Xi}     {\mathalpha}{greekletters}{"04}
+  \DeclareMathSymbol{\Pi}     {\mathalpha}{greekletters}{"05}
+  \DeclareMathSymbol{\Sigma}  {\mathalpha}{greekletters}{"06}
+  \DeclareMathSymbol{\Upsilon}{\mathalpha}{greekletters}{"07}
+  \DeclareMathSymbol{\Phi}    {\mathalpha}{greekletters}{"08}
+  \DeclareMathSymbol{\Psi}    {\mathalpha}{greekletters}{"09}
+  \DeclareMathSymbol{\Omega}  {\mathalpha}{greekletters}{"0A}
+
+  \SetMathAlphabet{\mathbf}{bold}{\encodingdefault}{\mathfamilydefault}{sb}{n}
+  \SetMathAlphabet{\mathsf}{bold}{\encodingdefault}{\sfdefault}{sb}{n}
+  \SetMathAlphabet{\mathit}{bold}{\encodingdefault}{\mathfamilydefault}{sb}{it}
+  \SetSymbolFont{operators}{normal}{\encodingdefault}{\mathfamilydefault}{m}{n}
+  \SetSymbolFont{operators}{bold}{\encodingdefault}{\mathfamilydefault}{sb}{n}
+
+  \DeclareMathSymbol{,}{\mathpunct}{operators}{"2C}
+}
+
+\fi
+
+\setbeamerfont{title}{series=\bfseries,size=\huge}
+\setbeamerfont{frametitle}{parent=title,size=\Large}
+
+\AtBeginDocument{%
+  \setbeamertemplate{itemize item}{{\fontfamily{lmr}\selectfont\textbullet}}
+}
+
+\mode
+<all>

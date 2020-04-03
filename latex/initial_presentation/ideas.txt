@@ -1,0 +1,92 @@
+- Outline
+    - Rought outline
+    - Existing research
+    - Pipeline
+    - Details on pipeline steps
+
+
+- Rough outline
+    - Introduction, Master Thesis 'Making offline handwriting editable'
+        - Offline handwriting vs online handwriting
+            - Online:
+                - temporal data reduces ambiguity for NN
+                - needs specific recording device
+            - Offline:
+                - every text can be converted to offline
+                - missing temporal data creates ambiguity
+                - double lines disappear
+                - style now also includes pen and paper
+                - increased noise
+        - editable - being able to generate new text in given style
+
+    - Why?
+        - Typed text clearly has advantages:
+            * editability
+            * compressability
+            * comparable and searchable
+        - Written text also has advantages:
+            * form of art
+            * identifies its writer
+            * positive impact on short and long term memory
+        - Combining benefits of handwritten text with the versatility and efficiency of digital text
+        - Automated handwriting generation, like for example banks
+        - Because we can, and it's cool
+        - Primarily: New, no one has done it yet,
+                     Getting new insights into neural networks + handwritten text
+                    - Gain deeper understanding in similarities and differences between human and machine text perception
+                    - Find new possibilities conc. machine and text interaction
+
+- Existing research
+    - Graves
+    - DeepWriting
+
+- Pipeline
+    - Skeleton generation
+    - Preproc   essing
+    - Creation of artificial pen positions
+    - DeepWriting
+    - Style Transfer
+
+- Details
+    - Skeleton generation
+        - Handwritten Chinese Characters, Wang and Liu
+        - use existing network like VGG/Resnet
+        - take specific layer outputs
+        - upscale, concatenate and filter
+        - have to implement and train on western handwriting
+
+    - Preprocessing, Creation of pen positions
+        - Problem: missing information in offline:
+            - Order of lines
+            - Which side of line start/end
+            - Distance of samples
+        - Doesn't have to be identical to human, just consistent enough that the network understands it
+        - THIS IS WHAT I CURRENTLY WORK ON
+            - preprocessing: graph creation, cleanup, merging of crossections
+            - pure constant-length segmentation doesn't seem to work
+            (- try to go reverse
+                instead of samples from skeleton
+                -> use real online data and abstract)
+            - max acceleration sampling?
+        - entire master thesis depends on this
+
+    - Deepwriting
+        - As previously explained
+
+    - Generation of realistic images
+        - Pix2Pix
+        - Generic framework to map images from one style to another
+        - styles can be very different
+        - EXAMPLES
+        - closest one to my usecase: handbag: edges to images
+        - hopefully this will work
+
+- Open Questions
+    - 1,2,3
+    - 4: Style Transfer
+        - Make the output match the input style
+        - Hard
+        - Potential future work, depending on the time frame
+
+
+

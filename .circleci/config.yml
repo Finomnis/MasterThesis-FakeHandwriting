@@ -1,0 +1,30 @@
+version: 2.1
+
+executors:
+    linux:
+        docker:
+            - image: circleci/buildpack-deps:bionic
+
+jobs:
+    build_thesis:
+        executor: linux
+        steps:
+            - run: sudo apt update; sudo apt install texlive-full
+            - run:
+                command: cmake ..
+                working_directory: latex/thesis/src/build
+            - run:
+                command: make
+                working_directory: latex/thesis/src/build
+            - store_artifacts:
+                path: latex/thesis/src/build/mt.pdf
+                destination: mt.pdf
+
+workflows:
+    version: 2.1
+    main:
+        jobs:
+            - build_thesis:
+                filters:
+                    branches:
+                        only: default

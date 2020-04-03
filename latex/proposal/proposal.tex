@@ -1,0 +1,88 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{german}
+\usepackage{times}
+\usepackage{hyperref}
+\usepackage{xspace}
+\usepackage{microtype}
+\usepackage{biblatex}
+%\usepackage{doublespace}
+%------------------------------------------------------------------------------
+%\setstretch{1.0}
+\voffset-10mm
+\hoffset-5mm
+\textwidth17cm
+\textheight24cm
+\headsep0mm
+\headheight0mm
+\oddsidemargin0.3mm
+\pagestyle{empty}
+\parindent0mm
+\parskip1ex
+%------------------------------------------------------------------------------
+%==============================================================================
+
+\providecommand{\etal}[1]{#1\emph{~et~al.\xspace}}
+\renewcommand\refname{References}
+
+\addbibresource{proposal.bib}
+
+\begin{document}
+
+
+
+\begin{center}
+	Master's Thesis at the Pattern Recognition Lab, FAU Erlangen-Nuremberg \hfill Nr.: 1523 \\[5mm]
+																				
+	\mbox{}\\
+	{\Large Making offline handwriting editable}\\[7mm]
+			
+\end{center}
+
+%Body
+In recent years, multiple approaches of analyzing and recreating handwritten text emerged \cite{graves} \cite{DeepWriting} and were often coupled with important insights in the nature of recurrent networks. But all of them were based on online handwriting data, and extending those approaches to offline handwriting should be a major challenge. Nevertheless, there is reason to believe that it is possible, and all the necessary building elements already exists.
+
+This work therefore proposes such a pipeline, consisting of the following elements:
+\begin{itemize}
+  	\setlength\itemsep{0em}
+	\item Skeletonization of handwritten text \cite{chineseSkeletonization}
+	\item Creation of artificial online data from the skeleton
+	\item Style transfer to new text content based on DeepWriting \cite{DeepWriting}
+	\item Rasterizing the output to create a new skeleton
+	\item Generation of realistic looking text \cite{pix2pix}
+\end{itemize}
+
+There are a lot of open questions that need to be answered.
+Will deepwriting work with artificial online data? How close to real online data do the strokes have to be? Will the conversion from pictures to skeletons produce usable strokes? Will the conversion back from skeletons to pictures produce believable strokes and backgrounds?
+
+Once all those questions are addressed, it might be interesting to investigate ways to do an actual style transfer from the original to the generated image, to not only mimic the style of the handwriting, but also the pen and background appearance.\\
+
+The thesis consists of the following milestones:
+\begin{itemize}
+  	\setlength\itemsep{0em}
+	\item Generation of artificial skeletons from online data and converting them to strokes
+	\item Evaluating the quality of those strokes on DeepWriting
+	\item Implementing a handwriting skeletonization CNN
+	\item Implementing a conversion network to create realistic images from the output of DeepWriting
+	\item Style transfer to mimic the input visual appearance
+	\item Repeated evaluation and improvement along the way
+\end{itemize}
+
+This thesis might bring useful new insight into the connection between offline and online handwriting and should serve as a basis for future research.
+
+The implementation should be done in Python / C++.\\
+		
+\begin{tabular}{ll}
+	\emph{Supervisors:} & Dipl.-Inf. V. Christlein, Prof. Dr.-Ing. habil. A. Maier
+	\\
+	\emph{Student:}     & Martin Stumpf
+	\\
+	\emph{Start:}       & March 1st, 2019                                            \\
+	\emph{End:}         & September 1st, 2019                                        \\
+\end{tabular}
+\nopagebreak[4]
+\small
+
+\printbibliography
+		
+\end{document}
+%==============================================================================

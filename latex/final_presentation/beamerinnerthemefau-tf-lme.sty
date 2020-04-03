@@ -1,0 +1,31 @@
+%-------------------------------------------------------------------------------
+% Inner theme file
+% (C) Oliver Reiche <oliver.reiche@fau.de>
+%-------------------------------------------------------------------------------
+
+
+\mode<presentation>
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Title page %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setbeamertemplate{title page}{%
+  \titlepagebody[%
+    \color{normal text.fg}%
+    \pgfuseimage{codesign-large}%
+  ]{\inserttitle}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Title page end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Section page %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\renewcommand{\sectionpagebody}{%
+  \titlepagebody[%
+    \color{normal text.fg}%
+    \pgfuseimage{codesign-large}%
+  ]{\insertsection}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Section page end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\mode
+<all>

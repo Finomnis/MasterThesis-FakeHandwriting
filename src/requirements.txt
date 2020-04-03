@@ -1,0 +1,9 @@
+matplotlib
+numpy
+scikit-learn
+scikit-image
+pillow
+scipy
+tqdm
+pybind11
+torchvision

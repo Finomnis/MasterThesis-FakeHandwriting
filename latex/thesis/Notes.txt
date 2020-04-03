@@ -1,0 +1,45 @@
+Structure:
+
+- Introduction
+
+- Related Work
+
+- Fundamentals / Theoretical Background
+    - Graves Handwriting Generation
+    - Pix2Pix
+
+- Pipeline Overview
+        
+- Line Extraction
+    - Theory
+    - Implementation
+    - Results
+      - Failure Cases
+- Preprocessing
+    - Theory
+    - Implementation
+    - Results
+      - Failure Cases
+- Handwriting Style Transfer
+    - Theory
+    - Implementation
+    - Results
+      - Failure Cases
+- Rendering
+    - Theory
+    - Implementation
+    - Results
+      - Failure Cases
+- Rendering with style transfer
+    - Theory
+    - Implementation
+    - Results
+      - Failure Cases
+
+- Pipeline Evaluation
+   - Study Design
+   - Results
+
+- Summary
+
+- Outlook

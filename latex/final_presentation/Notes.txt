@@ -1,0 +1,17 @@
+- Pix2Pix Background
+    - Capabilities:
+        - Mapping of images from one representation to another
+        - Differ in style, but have to show the same content
+    - Requirements:
+        - Pairwise annotations in training dataset
+        - Will be an important point later on, because we don't have that
+    - Pix2Pix 
+
+- Iterative Knowledge transfer
+    - Improvement by Generalization
+
+
+- Deepwriting
+    - Disadvantages:
+        - EOC+BOW: we don't have in synthetic online text,
+                   also: vague

@@ -1,0 +1,23 @@
+\chapter{Introduction}\label{chapter:introduction}
+
+In the last few years, the utilization of large-scale neural networks revolutionized machine learning. Its development vastly improved the results in many areas of research, from object detection, speech recognition, artificial intelligence and medical imaging all the way to speech synthesis, image generation, extra- and interpolation of data and computer graphics, just to name a few. While the theoretical background of neural networks has been known for decades, the power of the computing hardware just recently crossed a boundary where this theoretical knowledge became practical. Especially with the introduction of high-performance general-purpose GPUs the concept of deep networks, which contain millions of parameters over dozens of layers, became viable and deep learning became the tool of choice for most machine learning tasks.
+
+Nonetheless, the subject of deep learning is still young and a lot of it is yet to be discovered. For this reason, many companies utilize networks for tasks that are not directly beneficial, but give us new insights and a deeper understanding of neural networks. One excellent example of this is Google's AlphaStar network~\cite{alphastar}, which is trained to play the computer game Starcraft II and proved to be a great success, as it defeated multiple world-class human players. While this doesn't seem very beneficial at first, it gives deep insight into the capacity, possibilities and problems that arise when working with neural networks at that scale. This knowledge might prove invaluable and directly transferable to the task of autonomous driving.
+
+For this reason, in this thesis, we will investigate the topic of style transfer on handwritten text. While there are certain use cases where this might be useful, like automatically generated handwritten letters, its main purpose is to get new insights into the capabilities and challenges of neural networks.
+
+We will build upon the existing work of Alex Graves~\cite{graves} and Aksan, Pece and Hilliges~\cite{deepwriting} to convert their approach of online handwriting style transfer to an offline version. We define online handwriting to be a set of data points with positional and temporal data, that represent the actual movement of a pen. Offline handwriting, on the other hand, represents simple images of written text.
+
+Extending their work to offline handwriting will provide a major challenge and hopefully teach us a lot about both the robustness of their approach as well as the capacities and possibilities of \glspl{cnn}, \glspl{gan} and specifically the \gls{pix2pix} network.~\cite{pix2pix}
+
+The main contributions of this thesis are as follows:
+\begin{itemize}
+\item Creating a full pipeline for the synthesis of artificial handwriting, recreating both the visual and the writer-specific style (\cref{chapter:pipelineoverview})
+\item Showing how pix2pix can be used for handwriting skeletonization (\cref{chapter:skeletonization}) and visual style transfer (\cref{chapter:imageStyleTransfer})
+\item Demonstrating that a heuristic conversion method to approximate online handwriting from offline data can be sufficient to utilize the existing online-based style transfer methods (\cref{chapter:resampling}, \cref{chapter:writerStyleTransfer})
+\item Analyzing further approaches on how to include the background in the style transfer (\cref{chapter:backgroundStyleTransfer})
+\item Gaining new insights into the inner workings of neural networks along the way.
+\end{itemize}
+\vspace{0.05\textwidth}
+
+The entire source code of this thesis is publicly available~\cite{thesisSourceCode}.

@@ -1,0 +1,20 @@
+\chapter{Conclusion}\label{chapter:conclusion}
+
+In this thesis, we investigated the possibilities of extending existing online-to-online handwriting style transfer algorithms to offline handwriting.
+We achieved that by breaking the problem down into several sub-problems which together formed a multi-stage pipeline.
+
+After a short overview of the theoretical background of this thesis in \cref{chapter:background}, we gave a brief overview of the proposed pipeline in \cref{chapter:pipelineoverview}, outlining the tasks and challenges of each stage. We then continued by describing the stages in more detail.
+
+In \cref{chapter:skeletonization}, we looked into the possibilities to extract the strokes from images of handwritten text into skeleton images. To accomplish that, we introduced a novel algorithm for transferring existing traditional algorithms to neural networks and used it to convert a threshold-based naive skeletonization algorithm to the \gls{pix2pix}~\cite{pix2pix} network, greatly improving the quality and robustness of the skeletonization.
+
+In \cref{chapter:resampling}, we tackled the problem of converting a skeleton image into a meaningful online representation. We did not utilize neural networks for that step and hand-crafted an algorithmic solution instead. First, we converted the skeleton image to a graph by simply connecting neighboring pixels. This was followed by several graph cleanup steps, to remove clusters, intersections and cycles, until all sub-graphs represented disjoined directed acyclic strokes. We then investigated several ways to resample those strokes to both increase their predictability and reduce the required computation power in further processing. We found the best solution to be maximum acceleration resampling, a complex resampling method that we introduced, based on the physical properties of real handwriting.
+
+In \cref{chapter:writerStyleTransfer}, we evaluated the generated online data on multiple existing style transfer networks and found that Graves' network~\cite{graves} produced the best results on our data.
+
+In \cref{chapter:imageStyleTransfer}, we converted the online data produced by Graves' network back into skeletons, followed by a visual style transfer from the input image. In this chapter, we reduced the problem down to images of colored pens on a white background. Again, we used \gls{pix2pix} as the base network and extended it to include a style input. This turned out to be a success, yielding realistic images with great detail.
+
+Finally, in \cref{chapter:backgroundStyleTransfer}, we attempted to extend the image style transfer to include a more realistic background. We proposed several solutions, but none of them were completely satisfactory. Nonetheless, the methods showed various degrees of success and should serve as a good basis for future research.
+
+Overall, we consider the results of this thesis a success. We gained valuable insights into how neural networks perceive human handwriting and what the challenges and possibilities are. Along the way, we developed novel solutions to the overcome the problems we faced. Some of those solutions, like the method that allowed us to transfer knowledge from naive algorithms to neural networks, are not limited to the scope of this thesis but contribute to other research areas as well.
+
+While many questions still remain open and inspire more research, our results demonstrate the potential of offline to online handwriting conversion and should serve as a solid base for future work.

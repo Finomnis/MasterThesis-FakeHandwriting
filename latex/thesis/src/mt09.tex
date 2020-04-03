@@ -1,0 +1,25 @@
+\chapter{Future Work}\label{chapter:futureWork}
+
+\section{Skeletonization and Sampling}
+The skeletonization and sampling steps are the most important ones that determine the quality of the writer style transfer. Yet, they are currently the weakest links, as they produce a number of artifacts.
+
+Multiple possible approaches might further improve their quality. For one, the thresholding of the blurred skeletons is still one of the biggest flaws of the entire pipeline and should at some point be replaced with something more sophisticated, like an iterative solver or a more refined neural network.
+
+Furthermore, instead of separating skeletonization and sampling into two separate steps, we could use a modified Graves' network trained on real online handwriting to do the skeletonization and sampling simultaneously, as it already has the prior knowledge of how letters should look like and in what order the strokes are most likely to be written. This might require adding a \gls{cnn} as a side-input to Graves' network and might prove challenging, but if it works, it could yield higher quality results and would be one step closer to an end-to-end network.
+
+\section{Background Style Transfer}
+The results in \cref{section:backgroundTransferPix2pix} and \cref{section:backgroundTransferSpade} clearly show that networks are capable of reproducing both the background- and the pen-style, however, we never succeeded in completing both tasks at the same time. Nonetheless, we are confident that it is possible and will certainly be achieved in future studies.
+
+Nonetheless, there are alternatives that might be just as viable. Instead of creating a network that does the style transfer in one pass, it might prove a lot easier to find an iterative solution, like the artistic style transfer algorithm of Gatys et al.~\cite{iterativeArtisticStyleTransfer}.
+
+All in all, the background style transfer is a problem with a lot of potential for future research.
+
+\section{Direct offline-to-offline style transfer}
+The central goal of this work was to augment an online-to-online style transfer network to operate with offline data. While we accomplished this goal, the results could still be improved. It might be worth investigating whether skipping the entire online part of the pipeline could improve the results further.
+
+To achieve that, we could combine a conditional \gls{rnn} with \glspl{cnn} at both the input and output side and train it to directly transfer the style of offline images to new offline images. It would most likely still make sense to skeletonize the offline images first, as this step proved quite robust and removed a lot of input and output variation. This would skip the thresholding, the generation of synthetic online data and the online style transfer, which are the three steps responsible for the majority of artifacts in our output images.
+
+However, the question of whether such an approach would even converge, let alone produce viable results, still remains an open question and requires further research.
+
+
+

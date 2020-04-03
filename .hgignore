@@ -1,0 +1,17 @@
+syntax: regexp
+
+.*/__pycache__
+
+^src/algorithms/ccode/build/
+^src/algorithms/ccode/.*\.so
+^src/algorithms/cppcode/build/
+^src/algorithms/cppcode/tmp/
+^src/algorithms/cppcode/.*\.so
+
+^src/.idea/
+
+^logs/
+
+.*/Backup_of_.*\.cdr
+
+^latex/.*/build/.*

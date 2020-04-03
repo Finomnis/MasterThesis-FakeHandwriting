@@ -1,0 +1,123 @@
+\chapter{Pen Style Transfer}\label{chapter:imageStyleTransfer}
+
+\section{Introduction}
+
+\begin{wrapfigure}{r}{0.25\textwidth}
+  \vspace{-15pt}
+  \raggedleft
+  %\fbox{%  
+  \begin{minipage}{0.20\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{../assets/showcase/pen_style_transfer.pdf}
+    \caption[Pen style transfer]{}
+    \vspace{-15pt}
+    \label{fig:imageStyleTransfer}
+  \end{minipage}%}
+\end{wrapfigure}
+
+The purpose of this pipeline stage is to take skeleton images of handwriting and convert them to realistic images. In this stage, the generated background will always be white, similar to the data of the CVL dataset. ~\cite{cvl}
+
+While we already trained a network that accomplishes such a task as part of the iterative knowledge transfer of  \cref{iterativeTransfer}, that network is incapable of generating images in a specific pen style, but instead randomly chooses one.
+
+Therefore, the challenge in this stage is to create a similar network to what we already have, but with an additional style transfer functionality built-in.
+
+\section{Methodology}
+
+As we had really good results with the \gls{pix2pix} network so far, we decided to use it as the basis for the conditional image style transfer. To achieve the desired functionality, we had to augment both the network itself and its loss function.
+
+\subsection{Modifying the pix2pix network}
+The pix2pix network consists of an encoder and a decoder network, with additional skip connections in between. Both the encoder and decoder are \glspl{cnn}, with the encoder being a downsampling \gls{cnn}, and the decoder being an upsampling \gls{cnn}. The innermost layer of pix2pix is supposed to consist of global information that does not contain positional data anymore. All the positional data gets passed through the network via the skip connections.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.70\textwidth]{../assets/pen_style_transfer/styleExtraction.pdf}
+  \caption[Extracting style information from an image]{Extracting style information from an image. This is a simplified schematic and not to scale. The green network is a reused encoder of the pix2pix generator network. The max-pooling extracts the style information after every activation function layer.}
+  \label{fig:penStyleExtraction}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\textwidth]{../assets/pen_style_transfer/modifiedPix2Pix.pdf}
+  \caption[Modified \gls{pix2pix} generator network for conditional style transfer]{Modified \gls{pix2pix} generator network for conditional style transfer. This is a simplified schematic and not to scale. The blue style information is the output of \cref{fig:penStyleExtraction}. The style information gets concatenated with the output of the encoder, so that the decoder can use it to generate the output image.}
+  \label{fig:modifiedConditionalPix2Pix}
+\end{figure}
+
+The first step in creating a style transfer network is to extract the style information from a given image. For that, we utilized the encoder part of the \gls{pix2pix} network. We used the style image as input for the encoder and simply took the outputs of all activation function layers as style information. To strip away the spacial dimensions, we applied max-pooling. This process is as shown in \cref{fig:penStyleExtraction}.
+
+%We already showed in \cref{subsec:skeletonizationImplDetails} that as long as one side of the network contains a skeleton, no global style information exchange is required and the innermost layer is basically unused. This enabled us to apply the network to variable-sized images.\\
+%However, now that we are using the innermost layer for style information, the network loses its size-agnostic property and limits us to $256\times256$ sized images again. To overcome that limitation, we average-pooled the innermost layer of the style extraction encoder over all positional dimensions, leaving us with a constant number of style features that are independent of the input image size.
+
+We then injected that style information into the \gls{pix2pix} generator network by concatenating it with the innermost layer of the network, as seen in \cref{fig:modifiedConditionalPix2Pix}. To keep the size-agnostic property of the network, we repeated the style information along the two spatial axes to match the size of the innermost layer.
+
+\subsection{Modifying the pix2pix loss function}
+With the current loss function setup, the network has no motivation to actually learn the style information, as it doesn't get penalized for not doing so. We therefore need a way to include that in the training.
+
+The current loss function consists of the input and output image, concatenated, followed by a \gls{cnn} with a single output. As this is a \gls{gan} loss, part of the loss function is the discriminator, which we train to label images as real or fake. We simultaneously punish the generator network for producing outputs that the discriminator can distinguish from real images
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\textwidth]{../assets/pen_style_transfer/modifiedPix2PixTraining.pdf}
+  \caption[Training process of \gls{pix2pix} with added style information]{Training process of \gls{pix2pix} with added style information. \gls{gan} discriminators are always trained on both real and synthetic images, to learn how to distinguish between them. \textbf{X}: input skeleton, \textbf{Y}: real output image, \textbf{\^{Y}}: synthetic output image. \emph{Left:} The training step for the generator and for the discriminator on synthetic images. \emph{Right:} The training step for the discriminator on real images.}
+  \label{fig:modifiedConditionalPix2PixTraining}
+\end{figure}
+
+To include the style extraction network in the training process, we simply add the output of the style extraction network to the input of the discriminator, as shown in \cref{fig:modifiedConditionalPix2PixTraining}. Feeding this information to the discriminator has the effect that the discriminator can now differentiate between real and generated images by comparing their style output. This, in turn, forces both the generator to generate images that include the style, as well as the style extraction network to produce meaningful styles so that the generator can use them. At this point, it is especially important that the style only contains global information, as the discriminator could otherwise start to discriminate by content instead. We ensure that this is, in fact, the case by utilizing the previously mentioned max pooling.
+
+
+
+\section{Evaluation}
+\subsection{Dataset}
+As we wanted the output of our network to be as realistic as possible, we used the CVL dataset~\cite{cvl}, which contains images of real handwriting, as our training output. For training input, we converted the CVL dataset to skeletons using the skeletonization network from \cref{chapter:skeletonization}. Further, we also used the CVL dataset for the style input, effectively converting the network to an autoencoder during the training phase.
+
+\subsection{Implementation Details}
+In our first version, we took the same layer and feature configuration as the original pix2pix network for both the style extraction and image generation. However, we quickly realized that this is not suitable for skeleton-to-image transfer. The original configuration of the network is 8 layers deep,
+with its layers having a feature size of 64 (first layer) to 512 (deepest layer).
+%with the first layer having a feature size of 64, and the deepest layer having a feature size of 512.
+These are way too many features for a simple encoding of skeletonized handwriting, leaving the network with a lot of extra capacity, which it used to overfit on our training data. The resulting network was able to reproduce the original images exactly, but completely bypassed the style transfer step, and instead \emph{remembered} which skeleton belongs to which style. Obviously, the network didn't work on the evaluation dataset.
+
+We overcame this problem by re-implementing the U-Net blocks of the network with an asymmetric version. This means we can now change the encoder and decoder feature size separately. We then shortened the network down to 4 layers and reduced the number of encoder features. The configuration that ended up working the best utilized the following feature sizes: [16, 32, 64, 64] for the encoder, [32, 64, 128, 128] for the style extractor and [192, 256, 128, 64] for the decoder. This prevented the network from overfitting and we were quite happy with the results.
+
+The obvious concern when reducing the depth of a network is whether its perceptual range is still sufficient, but we did not find any indication that it was detrimentally diminished.
+
+The modified network is available under~\cite{pix2pixFixed}.
+
+\section{Results}
+
+
+The trained pen style transfer works really well, and a short demonstration of its output quality can be seen in \cref{table:penStyleTransferEvaluation}.
+
+It is noteworthy, as already mentioned earlier, that the network learned to correct for small mistakes in the skeletons, as seen in \cref{fig:penStyleTransferErrorCorrection}. This is excellent, as it might mitigate some of the artifacts generated in the writer style transfer step.
+
+As we couldn't find any obvious failure modes, were very satisfied with the results of this pipeline stage.
+
+
+\begin{table}
+  \centering
+  \begin{tabular}{ll}
+  \toprule
+  Style Input & \hspace{.01\textwidth} Output \\
+  \midrule
+  \raisebox{-0.4\height}{\includegraphics[scale=0.35]{../assets/pen_style_transfer/styles/style_demo_in.pdf}} &
+  \raisebox{-0.4\height}{\includegraphics[scale=0.35]{../assets/pen_style_transfer/styles/style_demo_out.pdf}} \\
+  \midrule
+  Skeleton Input & \raisebox{-0.4\height}{\includegraphics[scale=0.35]{../assets/showcase/skeleton_crop.png}} \\
+  \bottomrule
+  \end{tabular}
+  \caption[Qualitative evaluation of the pen style transfer]{Qualitative evaluation of the pen style transfer. The style inputs are from the evaluation dataset, the network has not seem them during the training phase. Note that the network does not only adjust the color, but also the width of the lines as well as geometric details and imperfections.}
+  \label{table:penStyleTransferEvaluation}
+\end{table}
+
+\begin{figure}
+  \centering
+  \subfloat[skeleton input]{
+  	\includegraphics[width=0.15\textwidth]{../assets/pen_style_transfer/result_real_A.png}
+  }
+  \hspace{0.1\textwidth}
+  \subfloat[network output]{
+  	\includegraphics[width=0.15\textwidth]{../assets/pen_style_transfer/result_fake_B.png}
+  }
+  \caption[Error correction properties of the pen style transfer]{Error correction properties of the pen style transfer. Note that the horizontal line of the \emph{t} is broken in the skeleton image, but the network managed to correct that problem. Further, the network realized that the additional line at the \emph{t} is an artifact of the skeletonization or writer style transfer step, and reduced its strength to a more realistic level.}
+  \label{fig:penStyleTransferErrorCorrection}
+\end{figure}
+

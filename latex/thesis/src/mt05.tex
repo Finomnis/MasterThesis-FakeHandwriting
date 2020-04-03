@@ -1,0 +1,244 @@
+\chapter{Approximation of an online representation}\label{chapter:resampling}
+
+
+\section{Introduction}
+
+\begin{wrapfigure}{r}{0.25\textwidth}
+  \vspace{-15pt}
+  \raggedleft
+  %\fbox{%  
+  \begin{minipage}{0.20\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{../assets/showcase/pipeline_resampling.pdf}
+    \caption[Approximation of an online representation]{}
+    \vspace{-45pt}
+    \label{fig:resamplingStage}
+  \end{minipage}%}
+\end{wrapfigure}
+
+The purpose of this pipeline stage is to take skeleton images of real handwriting as inputs and convert them to an approximate online representation, as seen in \cref{fig:resamplingStage}.
+
+As skeletons do not contain temporal annotations, this step will require some heuristical approach and will not perfectly match real online data.
+
+This stage consists of two steps:
+
+\begin{enumerate}
+\item Conversion of the bitmap representation to strokes
+\item Temporal resampling and ordering
+\end{enumerate}
+
+This section will not contain any neural networks, instead, we will solve the problems analytically. In some cases, a mixed pipeline of traditional and neural network approaches can be beneficial. Neural networks are really good for all tasks that require `intuition'. But whenever an analytical solution to the problem exists, it will be superior to what a neural network could approximate. After all, neural networks are always just approximations.
+
+\section{Methodology}
+
+\subsection{Conversion to strokes}\label{subsection:conversionToStrokes}
+The goal of this step is to convert a skeleton image to a set of strokes. Those strokes will not contain cycles any more, but do not yet have to be sorted or oriented.
+
+The concept that multiple pixels belong together and form a line or curve is something that comes very natural to the human mind but is far from obvious for machines. While the introduction of neural networks gave us the ability to teach machines the concept of intuitive thinking, we could not find a neural network layout that was able to solve the problem of converting pixels to curves. Therefore, a classic algorithmic approach seemed the best fit.
+
+An overview of the algorithm steps can be seen in \cref{fig:skeletonToStrokeSmall}.
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth]{../assets/sampling/cluster_removal/cluster_removal.pdf}
+  \caption[Conversion of a skeleton image to strokes]{Conversion of a skeleton image to strokes. a) The original skeleton image. b) The primitively generated graph by connecting neighboring pixel. c) The detected cluster. d) The graph after the cluster got replaced by a mean node. e) The final strokes after resolving intersections.}
+  \label{fig:skeletonToStrokeSmall}
+\end{figure}
+
+\subsubsection{Graph creation}
+The first step is to build a rough graph by defining all skeleton pixels as graph nodes, followed by connecting all directly or diagonally touching pixels.
+
+This is where it becomes important that the lines of our skeleton are complete and do not contain gaps. The graph would otherwise be disconnected and would later result in two separate strokes. At this step, we assume continuous lines are in fact connected and that the decision of whether two lines should be connected was already implicitly made in \cref{chapter:skeletonization}.
+
+\subsubsection{Dealing with clusters}
+The created graph still contains pixel clusters, as can be seen in \cref{fig:skeletonToStrokeSmall}. This is problematic because the strokes we strive to compute should not contain cycles.
+
+It is important to note that we require all of those clusters to consist of triangles. Graph cycles that do not consist of triangles are not considered to be a `cluster' artifact, but rather intentional and should be preserved. An example of that would be if people write the dot on the `i' as a little circle. We do not consider the entire circle as such a cluster, but instead keep it as a circle, as it is part of the writer's style.
+
+We will refer to those clusters as \emph{triangle groups}. We define two triangles to be in the same triangle group if they have at least one common edge. Once we found a triangle group we can then replace all the nodes of the group, that are not connected to outside nodes, with a new node at the mean position of the group.
+
+The implementation of this algorithm turned out to be more difficult than expected, as performance is somewhat critical due to the large datasets we were working with.
+
+The most important insight that enabled us to speed up performance is that we do not need to consider every single triangle. Instead, it is sufficient to focus on $2\times2$ pixel squares.\\
+There are three possible triangle configurations in a square: zero, one, or four triangles. This is simple to understand, as a square only consists of up to four nodes. Two or fewer nodes cannot form a triangle, three nodes form exactly one triangle and four nodes form four triangles, as seen in \cref{fig:triangleSquares}. This also means that every square can only be part of one triangle group because if it has four triangles, they are all from the same group.
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.55\textwidth]{../assets/sampling/cluster_removal/cluster_quads.pdf}
+  \caption[All possible triangle group configurations in a $2\times2$ square]{All possible triangle group configurations in a $2\times2$ square. Keep in mind that all patterns except (a) have rotated versions of them. This visualizes that each square can contain either four(a), one(b) or no(c,d,e) triangles. Further, a square cannot contain triangles of two different groups, as all triangles in (a) must be in the same group, as they are touching.}
+  \label{fig:triangleSquares}
+\end{figure}
+
+We can therefore look at all squares that contain triangles and then group them with a simple recursive fill. Working with squares is a lot faster because squares cannot overlap, have exactly four neighbors and can easily be represented, identified and accessed with 2D coordinates.
+
+\subsubsection{Removing intersections and cycles}
+While merging triangle groups removed a lot of cycles, the goal of having only line segments isn't quite achieved yet. An implicit requirement of having only line segments is that every graph node has either one or two neighbors, depending on whether it is inside or at the ends of a line segment. Further, it requires that the graph does not contain any cycles.
+
+We define an intersection to be a node with more than two neighbors. There are two types of intersections: crossing intersections (meaning even numbers of neighbor) and joining intersections (meaning odd number of neighbors).
+
+\textbf{Crossing intersections} are easy to resolve by simply connecting neighbors of opposite sides and removing the crossover node.
+
+\textbf{Joining intersections} require a little more math to become useful. Every neighbor has two crossover candidates that are on the opposite side of the crossover. We compute all the angles between all candidates. Then, we iteratively connect the neighbors with the largest angle, disconnecting them from the crossover, until only one neighbor is left. We keep that one neighbor connected to the original crossover, which is now the end of a curve.
+
+To prevent the creation of new cycles, we further check whether each line join will introduce a new cycle. If joining two nodes would create a new cycle, it simply gets skipped.
+
+Resolving intersections removes all nodes with more than two neighbors and replaces them with nodes with either two or one neighbor. This means that we fulfilled the first requirement.
+
+\textbf{Removing cycles}. Having two or fewer neighbors for all nodes does not prevent all cycles. Therefore, we follow the intersection resolution with an explicit cycle check. As all nodes only have one or two neighbors, the graph is already divided into subgraphs, with each representing a curve. So a cycle check is simply a matter of stepping through each subgraph until we either reach a node with only one neighbor or the starting node. Once we found a cycle, we split it on the upmost node; mostly because we strive for consistent behavior, and humans also tend to split circles at the upmost position.
+
+
+\subsection{Resampling}\label{sec:resampling}
+While we have lines now, we still lack a temporal component. There are multiple ways to encode time data, and the simplest and most desirable for our next stage is an encoding with constant time differences, where the timestamp of successive nodes is increasing in identical intervals. This also means that we don't need to store any temporal information explicitly because it is implicit.
+
+However, we cannot just take the line graphs created in \cref{subsection:conversionToStrokes}, as all our nodes are either $1$ (vertical and horizontal) or $sqrt(2)$ (diagonal) apart from each other, which is very unrealistic and hard to deal with for a predicting neural network. We therefore tried two resampling approaches to make the node spacing more realistic: constant velocity resampling and maximum acceleration resampling.
+
+\subsubsection{Constant velocity resampling}
+The goal of this resampling method is to create a curve consisting of line segments of identical length, and therefore constant velocity. This requires the target velocity as a hyperparameter, which we determine empirically. If the velocity is too large, we lose a lot of detail, but if it is too small, we get a lot of undesired noise since our starting graph only consists of horizontal, vertical or diagonal segments. Further, setting it too small might require large amounts of memory during writer style transfer.
+
+The resampling itself is quite straight forward: We start at the first node and then keep adding line segments until we overshoot our desired node distance. We then cut the last line segment in two sub-segments, to match the exact desired distance. We compute the desired node distance from the target velocity and round it to hit the last node without overshoot.
+
+\subsubsection{Maximum acceleration resampling}
+Real human beings, however, would not write with constant pen velocity. They would much rather start with zero velocity, then accelerate on straight parts and decelerate on curved parts, until they reach the end of the line. While not quite realistic, for simplicity, we assume that the end of the line is again reached with zero velocity.
+
+Resampling in such a way is not quite as straight forward as constant velocity resampling, it requires an optimum search.
+
+This algorithm requires the maximum acceleration as a hyperparameter. Like previously, this value was determined empirically by comparing it with real human online handwriting. It ended up being $0.025$ times the height of the text.
+
+We propose the following algorithm:
+\begin{enumerate}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item Resampling of the curve to sufficiently small intervals
+\item Creating a reachability graph between nodes, to prevent cutting corners
+\item Analysing acceleratability, meaning the acceleration required between two nodes. This will push the problem into 4D space: ($x$,$y$,$v_x$,$v_y$).
+\item Searching shortest path using directed Dijkstra
+\end{enumerate}
+
+\textbf{Constant pre-sampling.} The Dijkstra search does not include the possibility to cut lines into pieces. It can only select a set of optimal nodes from the existing nodes. Consequently, we need to make sure that the existing nodes are spaced appropriately by resampling them in small constant intervals. The distance between the nodes was determined empirically. Smaller distances yield better results at the cost of more computational power. We found a sufficiently small value to be $1/3$ of the maximum acceleration value.
+
+\textbf{Reachability graph.} We have to explicitly enforce the algorithm to not cut corners, so that it is required to slow down during curved sections.
+We therefore create a graph, encoded in a boolean matrix of size $N\times N$ (where $N$ is the number of nodes in the presampled graph), that stores the pairwise reachability between all nodes.
+
+We define points $\vec{p}_i$ and and $\vec{p}_{i+n}$ to be reachable, when
+\begin{equation}
+\max_{j=i..i+n} d(\vec{p}_j) < t
+\end{equation}
+with $d(\vec{p}_j)$ being the distance of the point $\vec{p}_j$ to the line between $\vec{p}_i$ and $\vec{p}_{i+n}$ and $t$ being a given threshold hyperparameter.
+ 
+We found the threshold parameter to be optimal at $3$ times the node distance of the presampling step.
+
+\textbf{Acceleratability.} So far, our nodes are two dimensional: $\vec{p} = (x, y)$. We now split them into four dimensions by adding the incoming velocities $\vec{v} = (v_x, v_y)$. As the incoming velocity $\vec{v}_i$ of node $\vec{p}_i$ from node $\vec{p}_{i-n}$ is computed by 
+\begin{equation}
+\vec{v}_i = \vec{p}_i - \vec{p}_{i-n}
+\end{equation}
+only one 4D node exists for each preceding 2D node, with multiple possible edges from different velocities of that preceding node.
+
+We now create a 4D acceleratability graph based on the 2D reachability graph that connects all 4D nodes $(\vec{p}_i, \vec{v}_i)$ and $(\vec{p}_j, \vec{v}_j)$ that fulfill the following `acceleratability' criterium:
+\begin{equation}\label{eq:acceleratability}
+\vec{v}_j = \vec{p}_j - \vec{p}_i \;\; \land \;\; \norm{\vec{v}_j - \vec{v}_i} < a
+\end{equation}
+with $a$ being the maximum acceleration hyperparameter. As we will never go back to a previous point of the curve, we make all the connections in the graph directed. This gives us a graph that contains all possible pen trajectories that create the given curve. It is now just a matter of finding the shortest path.
+
+\textbf{Shortest path search.}
+The set of possible paths is quite large, therefore it is important to utilize an efficient algorithm. The basic idea is a Dijkstra shortest path search, but with some optimizations specific to the 4D case.
+
+The first thing we can make use of is the fact that the graph is directed. We will always start at one end of the stroke and move towards the other, never backwards. We can therefore step through the curve, 2D node by 2D node, and compute all optimal paths \emph{to} that node for all possible velocities \emph{at} that node. The number of possible velocities is quite limited and is equivalent to the number of incoming edges to that node.
+
+Computing an optimal path to a given position $\vec{p}$ and velocity $\vec{v}$ is actually quite easy, if the optimal paths to the previous nodes are already known. First, we need to find the position of the previous node:
+\begin{equation}
+\vec{p}_{prev} = \vec{p} - \vec{v}
+\end{equation}
+We now take all the possible velocities $\vec{v}_{prev}$ at position $\vec{p}_{prev}$ that can reach $\vec{p}$, based on the acceleratability criterium \ref{eq:acceleratability}:
+\begin{equation}
+\norm{\vec{v} - \vec{v}_{prev}} < a
+\end{equation}
+The shortest path $l$ to $(\vec{p}, \vec{v})$ is then:
+\begin{equation}
+l(\vec{p}, \vec{v}) = \min_{\vec{v}_{prev}} l(\vec{p}_{prev},\vec{v}_{prev}) + 1
+\end{equation}
+
+We start the entire algorithm at one end of the curve, which we define as the starting point. Further, we set $\vec{p} = \vec{p}_{start}$, for which the only valid velocity is $\vec{v}_{start} = 0$ and $l(\vec{p}_{start}, \vec{v}_{start}) = 0$. We then iterate through the entire curve until we reach $\vec{p}_{end}$. As we defined both start and end velocities to be zero, we then look at $l(\vec{p}_{end}, \vec{v}_{end})$ with $\vec{v}_{end} = 0$ and backtrack to get the optimal path.
+
+The maximum acceleration resampling was quite computation heavy, so we had to re-implement it in \emph{C}. The source code can be found at \cite{thesisSourceCode}.
+
+The difference between the resampling methods can be seen in \cref{fig:resamplingComparison}.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.8\textwidth]{../assets/sampling/sampling/resampling_comparison.pdf}
+  \caption[Comparison between resampling methods]{Comparison between resampling methods}
+  \label{fig:resamplingComparison}
+\end{figure}
+
+\subsection{Ordering}
+The only difference between the curves we have now and real human handwriting is the temporal ordering. Human western handwriting usually starts at the left and progresses towards the right. This is true for both words and letters, but sadly not always for single strokes. Luckily, we do not need to recreate the perfect original ordering to train a writer style transfer network on it. We rather need to create an artificial, but consistent ordering.
+
+The requirements for the writer style transfer network are:
+\begin{itemize}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item Somewhat grouped by letters
+\item Consistent stroke ordering, writing the same letter multiple times should have a similar stroke order
+\item Letter-wise ordered from left to right
+\end{itemize}
+
+The first thing we did to increase consistency is to set the direction of every single stroke so that its start node is further left than its end node.
+
+Then, we tried multiple heuristics to sort strokes:
+\begin{itemize}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item by leftmost node of the stroke
+\item by rightmost node of the stroke
+\item by start node
+\item by end node
+\item by the mean of all nodes in the stroke
+\end{itemize}
+
+None of them succeeded in reproducing the exact stroke order as a human would generate it. The most common mistakes were that the horizontal line of a \emph{t} or \emph{f} or the dot of the \emph{i} was drawn before the rest of the letter. Luckily, we don't strive to reproduce the exact behavior of a human, but instead to behave predictable enough to train a writer style transfer network with it. Therefore, to get a qualitative comparison for our specific use case, we actually trained said network with all of the sorting methods, to get a meaningful numerical comparison. To be specific, we trained Graves' network, but we will talk about that in more detail in the next chapter.
+
+To get a better understanding of how the skeletonization stage influences our result, we trained the network twice for every sorting method. The first training was with skeletons that are directly rendered from the IAM-Online dataset~\cite{iam-online}. For the second one, we created a CVL-like dataset from the IAM-Online skeletons, using the network we trained during the iterative knowledge transfer (\cref{iterativeTransfer}). To get the final training set, we then skeletonized those CVL-like images again. This is a lot closer to the use case of the final pipeline and is therefore hopefully also more meaningful.
+
+\begin{table}
+  \centering
+  \begin{tabular}{lcccc}
+  \toprule
+  &\multicolumn{2}{c}{Skeleton Data}&\multicolumn{2}{c}{Color Images}\\ \cmidrule(l){2-3} \cmidrule(l){4-5}
+  Sorting Key & Training Loss & Validation loss & Training Loss & Validation Loss\\
+  \midrule
+  Mean        & \textbf{-2.569} & -2.351 & \textbf{-2.480} & \textbf{-2.274} \\
+  Start       & -2.530 & -2.321 & -2.479 & -2.247 \\
+  End         & -2.515 & \textbf{-2.353} & -2.463 & -2.251 \\ 
+  Leftmost    & -2.524 & -2.332 & -2.470 & -2.253 \\
+  Rightmost   & -2.557 & -2.349 & -2.461 & -2.245 \\
+  \bottomrule
+  \end{tabular}
+  \caption[Comparison between different sorting methods]{Comparison between different sorting methods. The network trained to generate those results was a re-implementation of the Graves' network.~\cite{gravesImplementationOurs} The results are very close, but in general, sorting by mean seems to work the best.}
+  \label{table:sortingComparison}
+\end{table}
+
+The results can be seen in \cref{table:sortingComparison}. Two things are noteworthy. For once, the skeletonization definitely had a negative impact on the results, which is expected due to the artifacts it generates, as already mentioned earlier. Moreover, none of the sorting methods really stand out and all of the results are very close, which means that the writer style transfer is quite robust to the actual stroke order. Nonetheless, as the \emph{mean} sorting still comes out a little bit ahead of the other methods, it is our method of choice.
+
+
+
+\section{Results}
+
+As already mentioned, it is really hard to evaluate the results numerically, as we have neither a metric nor another algorithm to compare it against. If we had a metric, we could generate skeletons from real online data and then compare our artificial online results to the real online data, but we were not able to come up with a meaningful metric. We, therefore, decided to empirically look at the results and search for inconsistencies manually. Additionally, we used the convergence of the writer style transfer network from the next pipeline stage as guidance, which will be further discussed in the next chapter.
+
+
+\subsection{Typical Failure Modes}
+
+There are some situations where the results clearly differ from the original strokes, as seen in \cref{fig:resamplingFailureModes}.
+The most common errors are:
+
+\begin{itemize}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item Intersecting lines fail to get connected or get connected incorrectly
+\item Lines that are directly on top of each other are always represented as a single line
+\item Lines with sharp edges get broken up
+\end{itemize}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.90\textwidth]{../assets/sampling/fails/fails.pdf}
+  \caption[Typical failure modes of the online approximation]{Typical failure modes of the online approximation. (a) The \emph{M} demonstrates the inability of the algorithm to understand lines that are drawn on top of each other, causing the continuous line to be split into three segments. Further, the \emph{k} and the \emph{e} show cases where the algorithm fails to connect crossing lines properly. (b) This demonstrates that the algorithm has problems with sharp edges. The entire word is mostly one continuous line, but the algorithm split it into lots of segments. (c) Here, the intersecting lines of the \emph{f} got connected incorrectly.}
+  \label{fig:resamplingFailureModes}
+\end{figure}
+
+Nonetheless, those errors are not crucial for our pipeline, as we do not strive to recreate human behavior. Instead, consistency is much more important for the rest of the pipeline, and to that end, our results are absolutely satisfactory.
+

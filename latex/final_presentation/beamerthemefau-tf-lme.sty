@@ -1,0 +1,64 @@
+%-------------------------------------------------------------------------------
+% Main file
+% (C) Oliver Reiche <oliver.reiche@fau.de>
+%-------------------------------------------------------------------------------
+
+\mode<presentation>
+
+
+\usepackage{calc}
+\usepackage{pgf}
+
+
+\newif\ifbeamer@image
+\beamer@imagefalse
+
+\newif\ifbeamer@plain
+\beamer@plainfalse
+
+\newif\ifbeamer@longtitle
+\beamer@longtitlefalse
+
+\DeclareOptionBeamer{image}[true]{%
+  \csname beamer@image#1\endcsname%
+}
+
+\DeclareOptionBeamer{plain}[true]{%
+  \csname beamer@plain#1\endcsname%
+}
+
+\DeclareOptionBeamer{longtitle}[true]{%
+  \csname beamer@longtitle#1\endcsname%
+}
+
+\ProcessOptionsBeamer
+
+
+% Include TechFak FAU theme
+\usetheme[
+  image=\ifbeamer@image true\else false\fi,
+  plain=\ifbeamer@plain true\else false\fi,
+  longtitle=\ifbeamer@longtitle true\else false\fi
+]{fau-tf}
+
+
+% Overload outer and inner theme definitions
+\useinnertheme{fau-tf-lme}
+\useoutertheme{fau-tf-lme}
+
+
+\ifdim \beamer@aspectratio pt=\beamer@fourtothree pt%
+  % Aspect ratio 4:3
+  \pgfdeclareimage[width=0.440cm]{codesign-small}{art/tf/lme/lme}
+  \pgfdeclareimage[width=0.851cm]{codesign-large}{art/tf/lme/lme}
+\else\ifdim \beamer@aspectratio pt=\beamer@sixteentonine pt%
+  % Aspect ratio 16:9 % FIXME
+  \pgfdeclareimage[width=0.43cm]{codesign-small}{art/tf/lme/lme}
+  \pgfdeclareimage[width=0.851cm]{codesign-large}{art/tf/lme/lme}
+\else%
+  \errmessage{Any layout other than aspect ratio 4:3 or 16:9 is not supported}
+\fi\fi%
+
+
+\mode
+<all>

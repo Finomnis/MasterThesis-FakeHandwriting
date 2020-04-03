@@ -1,0 +1,253 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  Master Thesis, Martin Stumpf, 2019         
+%  "Making Offline Handwriting Editable"
+%  Lehrstuhl fuer Mustererkennung, FAU Erlangen-Nuernberg
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% ++ LME LateX Dokument 
+%    Die Verwendung der option "german" bindet german.sty ein.
+%    For english papers, use the "english" option and talk to your advisor.
+%\documentclass[german,mt]{lmedoc}
+\documentclass[english,mt]{lmedoc/lmedoc}
+
+% ++ Umlaut Unterstuetzung
+%    Paket "inputenc" kann verwendet werden, um z.B. Umlaute oder das scharfe S
+%    direkt (als Nicht-ASCII-Zeichen) einzubinden. Dabei auf die korrekte
+%    Kodiermethode achten (z.B. Linux: utf8)! 
+\usepackage[utf8]{inputenc}
+
+% ++ use \toprule,\midrule und \endrule in your tables, no \hline or vertical
+% columns please
+\usepackage{booktabs}
+% ++ better font spacing
+\usepackage{microtype}
+% guessing if space is needed
+\usepackage{xspace}
+
+% mathstuff
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% Colour stuff
+\usepackage[usenames,dvipsnames,table]{xcolor}
+% let's define a dark blue color
+\definecolor{faublue}{RGB}{0,51,102}
+
+% defines units
+\usepackage[binary-units,abbreviations]{siunitx}
+
+% remove widows at end or beginning of a page
+\usepackage[all]{nowidow}
+
+% ++ Biblatex
+%    Replaces the old 'bibtex'. The bibtex step has to be replaced with 'biber'.
+\usepackage{url}
+\usepackage[backend=biber, bibencoding=utf8, maxbibnames=99, % show all authors in the bibliography
+			style=trad-alpha, backref=true]{biblatex}
+
+
+% ++ Makes all the references in the document clickable.
+%    To ensure that backref is working, this package has to be loaded after biblatex.
+% ++ Enables references. For more information, read the \cref and \vref online reference.
+\usepackage{varioref}
+\renewcommand\reftextfaraway[1]{(p.\,\pageref{#1})}
+
+
+\usepackage{hyperref}
+\hypersetup{
+  %hyperindex = false,
+  colorlinks = true,   % F"uhrt zu einem farbigen Ausdruck!
+  linkcolor =  faublue,
+  urlcolor =   magenta,
+  citecolor =  faublue,
+  %pdfpagelabels,
+  plainpages =        false,
+  hypertexnames =     true,
+  linktocpage =       true,
+  bookmarksopen =     true,
+  bookmarksnumbered = true,
+  bookmarksopenlevel= 0,
+	% pdf information, uncomment if done
+%  pdftitle =    {your thesis title},
+%  pdfauthor =   {your name},
+%  pdfsubject =  {Master's thesis},
+%  pdfkeywords = {put in some comma-separated keywords}
+}
+% Enable correct jumping to figures when referencing
+\usepackage[all]{hypcap}
+
+\usepackage[noabbrev,capitalise,nameinlink]{cleveref}
+
+% ++ Enables glossaries-extra. Should be used for abbreviations in the paper.
+\usepackage{glossaries-extra}
+\makeglossaries
+
+% ++ Additional mandatory style packages
+\usepackage{booktabs}
+\usepackage{microtype}
+
+% Additional packages
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{subfig}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage[export]{adjustbox}
+
+
+% ++ removes the superfluous 'underfull hboxes' warning
+\hbadness=10000
+
+% number subsubsection
+%\setcounter{secnumdepth}{3}
+%\setcounter{tocdepth}{3}
+
+
+% Sets the bib file
+\addbibresource{mt.bib}
+
+% Add the glossaries
+\input{glossaries}
+
+
+% Use this command to only build the document partially. Speeds up the developement cycle.
+% For the final product, this has to be commented out.
+\includeonly{mt01,mt02,mt03,mt04,mt05,mt06,mt07,mt08,mt09,mt10,mt11}
+
+% for debugging
+%\usepackage{showframe}
+
+
+\pagenumbering{roman}
+
+\begin{document}
+\clearpage
+  \begin{deckblatt}
+    \Titel{Making Offline Handwriting Editable}
+    \Name{Stumpf}
+    \Vorname{Martin Hubert}
+    \Geburtsort{Naila}
+    \Geburtsdatum{September 27, 1990}
+    \Betreuer{Dr.-Ing. V. Christlein, Prof. Dr.-Ing. habil. A. Maier}
+    \Start{March 1, 2019}
+    \Ende{September 1, 2019}
+  \end{deckblatt}
+
+
+\cleardoublepage
+
+
+Ich versichere, dass ich die Arbeit ohne fremde Hilfe und ohne Benutzung
+anderer als der angegebenen Quellen angefertigt habe und dass die Arbeit
+in gleicher oder "ahnlicher Form noch keiner anderen Pr"ufungsbeh"orde
+vorgelegen hat und von dieser als Teil einer Pr"ufungsleistung
+angenommen wurde. Alle Ausf"uhrungen, die w"ortlich oder sinngem"a"s
+"ubernommen wurden, sind als solche gekennzeichnet.
+\\
+
+Die Richtlinien des Lehrstuhls f"ur Studien- und Diplomarbeiten
+habe ich gelesen und anerkannt, insbesondere die Regelung des
+Nutzungsrechts. \\[15mm]
+Erlangen, den \selectlanguage{german} \today \hspace{6.0cm} \\[10mm]
+
+\selectlanguage{english} %remove this line for german style
+
+\cleardoublepage
+
+\begin{center}
+\bfseries
+Abstract
+\normalfont
+\end{center}
+In recent years, multiple approaches for analyzing and recreating handwritten text emerged and were often coupled with important insights into the nature of recurrent networks. But all of them were based on online handwriting data, and extending those approaches to offline handwriting should be a major challenge. Nevertheless, there is reason to believe that it is possible, and all the necessary building elements already exist.
+
+Based on existing techniques, we explore ways to combine \glspl{cnn}, \glspl{rnn} and classic techniques to create a pipeline that achieves offline to offline handwriting synthesis and style transfer. First, we demonstrate that the \gls{pix2pix} network can be used for robust handwriting skeletonization. We then use traditional techniques to further refine the skeletons and introduce a method to generate a pseudo-online representation of the handwriting. For the generation of synthetic handwriting, we show that the pseudo-online handwriting is a sufficient input for existing online-to-online solutions. To further achieve realistic looking text, we propose an extension of \gls{pix2pix} to perform a conditional style transfer. Finally, we attempt to incorporate the background of the image in the style transfer and analyze the problems we encounter.
+
+
+
+\vspace{0.7cm}
+
+\begin{center}
+\bfseries
+"Ubersicht
+\normalfont
+\end{center}
+In den vergangenen Jahren gab es mehrere Ansätze, handschriftliche Texte zu analysieren und zu generieren. Alle diese Ansätze basieren jedoch auf einer temporalen Representation der Handschrift, und eine Methode zu entwickeln, die sich von der tempralen Komponente distanziert, verspricht eine Herausforderung zu sein. Dennoch sind alle Bausteine, die dazu benötigt werden, bereits vorhanden und es gibt keinen Grund zu glauben, dass dieses Problem unmöglich wäre.
+
+Unter mithilfe existierender Technologien und Algorithmen vereinen wir \glspl{cnn}, \glspl{rnn} und andere Algorithmen, um eine Pipeline zu erstellen, die Bilder von Handschrift analysiert und reproduziert. Zuerst zeigen wir, dass man das \gls{pix2pix} als robustes Tool zur Handschrift-Skeletonisierung benutzen kann. Anschließend verfeinern wir die resultierenden Skelette mithilfe traditioneller Algorithmen und generieren eine künstliche zeitliche Komponente. Wir benutzen diese nun als Eingabe für existierende, temporal basierte Algorithmen, um inhaltlich veränderte Handschrift zu erzeugen. Weiterhin erweitern wir das \gls{pix2pix} Netzwerk, um realistischen Text zu erhalten, der dem ursprünglichen Text visuell gleicht. Abschließend versuchen wir, auch den Hintergrund des Ursprungstextes mit einzubeziehen, und analysieren die Probleme, auf die wir dabei stoßen.
+
+
+\cleardoublepage
+
+\begin{center}
+\bfseries
+Acknowledgments
+\normalfont
+\end{center}
+
+\vspace{1.0cm}
+First, I would like to thank Prof. Andreas Maier and Dr.-Ing. Vincent Christlein for advising me on the thesis. Their advice and criticism in this project was of great value to me.
+
+Next up, I would like to thank the entire Chair of Pattern Recognition at the Friedrich-Alexander-University Erlangen-Nuremberg and especially the Computer Vision Group, whose hardware resources were invaluable for this project. I had some very interesting, insightful and sometimes heated scientific discussions in this group which guided me along the way and I would like to specifically mention Anguelos Nicolaou and Mathias Seuret for their contribution. Likewise, I want to mention Philipp Klumpp, whose assistance and cooperation concerning the group's hardware resources is much appreciated.
+
+Furthermore, I would like to thank Adrian Lemoine, Joe Breuer and Margareta Büche for proof-reading this thesis and supplying me with valuable feedback of both scientific and linguistic nature.
+
+I would like to thank my entire family, whose love and support I could not be more grateful for. Last but not least, I would like to especially thank my partner Ina Rupprecht, not only for correcting my thesis, but also for her everlasting support and her patience during the time of writing it. Thank you!
+\cleardoublepage
+
+\tableofcontents
+
+\cleardoublepage \pagenumbering{arabic}
+
+\include{mt01}   % Einfuehrung (\chapter{Einf"uhrung})
+\cleardoublepage
+\include{mt02}   % (\chapter{})
+\cleardoublepage
+\include{mt03}   % (\chapter{})
+\cleardoublepage
+\include{mt04}   % (\chapter{})
+\cleardoublepage
+\include{mt05}   % (\chapter{})
+\cleardoublepage
+\include{mt06}   % (\chapter{})
+\cleardoublepage
+\include{mt07}   % (\chapter{})
+\cleardoublepage
+\include{mt08}   % (\chapter{})
+\cleardoublepage
+\include{mt09}   % Ausblick (\chapter{Ausblick} TEXT)
+\cleardoublepage
+\include{mt10}   % Zusammenfassung
+\cleardoublepage
+
+\appendix
+\cleardoublepage
+\include{mt-a1}   % 
+\cleardoublepage
+\include{mt-a2}   % 
+\cleardoublepage
+
+
+%% Do not change, auto-generated lists of figures, tables and literature %%
+% Glossar
+\printglossaries
+\cleardoublepage
+
+% Bilderverzeichnis
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+\cleardoublepage
+
+% Tabellenverzeichnis
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+\cleardoublepage
+
+% Literaturverzeichnis
+\addcontentsline{toc}{chapter}{\bibname}
+\printbibliography
+
+\end{document}

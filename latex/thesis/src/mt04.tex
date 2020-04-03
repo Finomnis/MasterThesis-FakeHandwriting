@@ -1,0 +1,367 @@
+\chapter{Skeletonization}\label{chapter:skeletonization}
+
+\section{Introduction}
+\begin{wrapfigure}{r}{0.25\textwidth}
+  \vspace{-15pt}
+  \raggedleft
+  %\fbox{%  
+  \begin{minipage}{0.20\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{../assets/showcase/pipeline_skeletonization.pdf}
+    \caption[Skeletonization]{}
+    \vspace{5pt}
+    \label{fig:skeletonizationStage}
+  \end{minipage}%}
+\end{wrapfigure}
+
+The purpose of this pipeline stage is to take images of real handwriting as inputs and output their corresponding skeletons, as shown in \cref{fig:skeletonizationStage}.
+
+The biggest problem to overcome is that while individual datasets exist of both real handwriting pictures and skeletons, at the time of writing, there is no dataset that annotates a mapping between those two. We will try two possible solutions to overcome that problem.
+
+First, we will describe an approach based on \gls{CycleGAN} and examine why this approach did not work.
+We then introduce an iterative algorithm based on \gls{pix2pix} and show its effectiveness. Further, we discuss the issues we faced and their solutions.
+
+\section{Methodology}
+
+\subsection{pix2pix}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth]{../assets/pix2pix_teaser.pdf}
+  \caption[Pix2pix examples]{Pix2pix examples. Source:~\cite{pix2pix}}
+  \label{fig:pix2pixExamples}
+\end{figure}
+
+The \gls{pix2pix}~\cite{pix2pix} network is a Convolutional Adversarial Network proposed in 2016 by Isola et al.
+Its goal was to create a method to map an input image to an output image of the same size, with both images showing the same content, but in different representations. Examples of this can be seen in \cref{fig:pix2pixExamples}.
+
+Their approach turned out to be both robust and easy to adapt, and after the publication of \gls{pix2pix}'s source code it gained a lot of media attention. Numerous projects based on their code followed, among the most famous being the edges2cat~\cite{edges2cats} and the Pokémon™~\cite{pokemon} generator.
+
+To achieve the quality of \gls{pix2pix}'s mappings, they utilized two crucial elements: The \emph{U-Net}, which enables a mapping with rich detail and resolution, and their \emph{loss function}, which is very robust to various image contents.\\
+
+\textbf{U-Net.} In the early days of \glspl{cnn}, they mostly consisted of convolutions and subsampling and were used for object recognition~\cite{cnn}. But during the following years, it became apparent that they could do a lot more than that. In 2014, Long et al.~\cite{inverse_conv} introduced the idea of an inverse convolution, which enabled networks to \emph{learn} a parameterized upsampling and made the construction of combined down- and upsampling networks possible, also called encoder-decoder networks. This can be used to map two image representations to each other, which in Long's case was medical images to a segmentation map.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.75\textwidth]{../assets/pix2pix_unet.pdf}
+  \caption[U-Net network layout]{The U-Net network layout, compared to classic encoder-decoder network. Source:~\cite{pix2pix}}
+  \label{fig:pix2pixUnet}
+\end{figure}
+
+However, the results lacked clarity and detail, and the paper was quickly followed up by Ronneberger et al~\cite{unet}. They proposed to add \emph{skip-connections} between the respective down- and upsampling layers, as seen in \cref{fig:pix2pixUnet}, and called the resulting network \emph{U-Net}. The skip-connections helped to guide the upsampling layers, allowing them to produce a much more detailed output that matched the geometry of the input with pixel accuracy.
+
+Still, the use case for this network was to create a segmentation map, and outputs with more photo-realism weren't possible yet, due to the lack of a better loss function. Such a loss function would be introduced by the \gls{pix2pix} network.\\
+
+\textbf{Loss Function.} Most networks would have the capacity of producing highly realistic outputs if their weights would be trained correctly. The loss function is one major influence that determines the quality of the resulting network output. Sadly, hardcoded loss functions like the \gls{mse} loss produce `washed out' images with little to no detail. This is intuitive because if there are multiple possible outputs for a network, the optimal solution in the sense of \gls{mse} is the weighted mean of all possibilities, which results in the loss of details.
+
+The biggest change that \gls{pix2pix} introduced was the adaptation of the \gls{gan} loss to image mappings. \glspl{gan} replace the traditional, hard-coded loss with a second network, called the \emph{discriminator network}, that tries to find the differences between a real and a generated image. The \emph{generator} and the \emph{discriminator} networks then compete against each other, until the discriminator is unable to recognize the difference between a generated and a real image. This has the potential to produce very realistic images in high resolution.
+
+Further, the paper states that the \gls{gan} loss doesn't have to span across the entire output image. Experimental results showed that comparing only patches of the generated with the real image is sufficient, but increases the performance a lot, while also rendering the loss independent of the image size.
+
+Nonetheless, the \gls{gan} loss alone tends to focus too much on details, causing artifacts and discrepancies in the lower frequencies. Therefore they paired the \gls{gan} loss with an L1-loss, which combined produced excellent results and turned out to be very robust and adaptable to a lot of different types of images.
+
+\subsubsection{Applicability}
+
+The \gls{pix2pix} network has already demonstrated in various cases that it is capable of mapping between realistic images and abstract representations, like segmentation maps or outlines. Therefore it should be well suited for the skeletonization of handwritten text.
+
+
+\subsection{CycleGAN}
+
+\gls{CycleGAN}~\cite{cyclegan} is an extension to \gls{pix2pix}. While \gls{pix2pix} requires annotated pairs of training data, \gls{CycleGAN} tries to overcome that restriction. This is especially relevant in our case, as, at the time of writing, no pairwise annotated skeletonization dataset exists.
+
+\gls{CycleGAN} is a \gls{gan} that further enforces \emph{cycle consistency}. A traditional \gls{gan} would fail to map images without pairwise annotations, as no mechanism enforces the network to retain a meaningful connection between the input and output domain. It is free to use the inputs as \emph{random noise} for the generation of \gls{gan}-consistent output images. Cycle consistency mitigates this problem, as it enforces the network to store enough information in the mapped image to recreate the original image. To achieve that, \gls{CycleGAN} utilizes two loss functions, the \gls{gan} loss and the cycle consistency loss, as seen in \cref{fig:cycleGanLoss}.
+
+The cycle consistency also requires the network to always train both a forward and an inverse mapping simultaneously. Combined with two discriminator networks, there is a total of four simultaneously trained networks. This makes CycleGAN one of the more memory-intensive networks.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.7\textwidth]{../assets/cycleGanLoss.pdf}
+  \caption[CycleGAN loss functions]{\gls{CycleGAN} loss functions. Note the L1 losses, which enforce cycle consistency.}
+  \label{fig:cycleGanLoss}
+\end{figure}
+
+
+\subsection{Iterative knowledge transfer from naive algorithms}\label{iterativeTransfer}
+%The second approach to overcome the lack of pairwise annotations was to transfer knowledge of an existing, naive algorithm to \gls{pix2pix}.
+
+Training an unsupervised mapping with an algorithm like \gls{CycleGAN} has one major restriction: The algorithm has to \emph{guess} the transfer function. This could lead to several problems because it is not guaranteed that the resulting mapping will still keep spacial consistency. It could freely move lines, as long as the result is \gls{gan}-consistent and contains enough information to perform an inverse mapping. For that reason, we also looked into alternatives to \gls{CycleGAN}.
+
+Primitive algorithms that solve the problem of skeletonization already exist, but are not very robust. Nonetheless, they could be used to \emph{guide} the training, to incorporate prior knowledge about the mapping. Therefore we developed a method to extract the knowledge of one of those algorithms to transfer it to a neural network.
+
+The proposed method is not limited to this specific use case. It is rather a general method to transfer knowledge from an existing mapping function to a neural network while improving and generalizing it along the way.
+
+The method requires a naive mapping function and two non-paired datasets that we want to map between, the source dataset and the target dataset.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.7\textwidth]{../assets/pix2pixTransfer.pdf}
+  \caption[Knowledge transfer from a naive mapping algorithm to a neural network]{Illustration of our method to transfer knowledge from a naive mapping algorithm to a neural network. In our case, this is used to train the handwriting skeletonizer. This generalizes to all types of mapping problems for which a naive mapping function exists.}
+  \label{pix2pixTransfer}
+\end{figure}
+
+It consists of the following steps, as illustrated in \cref{pix2pixTransfer}:
+\begin{enumerate}
+\item Generation of a synthetic dataset from the real source dataset using the naive mapping
+\item Training of an inverse mapping based on the synthetic dataset
+\item Generation of a synthetic inverse dataset from the real destination dataset using the trained mapping
+\item Training of final mapping using the synthetic inverse dataset
+\end{enumerate}
+
+The first step takes the knowledge of the naive mapping algorithm and encodes it in a dataset. This dataset is expected to be erroneous. The second step then trains a network to do an inverse mapping, enforcing generalization. The network capacity needs to be sized correctly, so that generalization happens without picking up on the errors of the naive implementation. Also note that the output training data of the network is real data, so the network learns to map erroneous data to real data, further improving its quality.
+
+The third step then takes the trained network and feeds it with the real destination dataset.
+The network was only ever trained to output real data, so the expectation at this step is that the switch from erroneous input data to real input data will not produce additional artifacts, but real-like output data that matches the input data. This will finally create a dataset that maps real destination data to real-like source data, and we can now take this dataset to train our final network.
+
+Both network training steps benefit heavily from augmentations like added noise, resizing, cropping and color jitter.
+
+For our problem, we decided to use \gls{pix2pix} as the mapping network, as it is the current state-of-the-art solution for mappings between images of identical size.
+
+\section{Evaluation}
+\subsection{Datasets}
+The biggest problem for every network training is the acquisition of an appropriate dataset.
+In our case, we need a dataset that contains pictures of real handwriting and their respective skeletonized versions. As already mentioned, such a dataset does not exist, and annotating one by hand would exceed the scope of this thesis. There are multiple datasets of both non-skeletonized handwriting and online handwriting. Specifically, we use CVL~\cite{cvl} as the source for real offline data and IAM-Online~\cite{iam-online} for real skeleton data.
+
+\subsection{Implementation Details}\label{subsec:skeletonizationImplDetails}
+\subsubsection{The Sharpness Problem}
+
+The \emph{skeleton} of a binary mask traditionally consists of only background and one-pixel diameter line segments. After several attempts, it became apparent that generating a one-pixel line is really hard for neural networks, for multiple reasons. For one, it is generally hard for \glspl{cnn} to deal with high frequencies in images. But maybe even more important, the loss function loses its continuity property. Combined, those problems result in the appearance of major artifacts that the network seems to be unable to resolve.
+
+Our solution was to apply a gaussian filter with ${\sigma}^{2} = 1$ to the skeleton mask. This removes the necessity for the network to generate high frequencies and gives it the chance to recover gracefully from off-by-one problems.
+
+\subsubsection{Blur Reversal}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\textwidth]{../assets/skeletonization/thresholding_study/thresholding_study.pdf}
+  \caption[Finding the optimal blur reversal thresholding value]{Finding the optimal blur reversal thresholding value. On the top is the original, blurred skeleton. The left column displays the image after thresholding, with different threshold values, the right column is with additional thinning, which represents the final result of the skeletonization. If the threshold value is too small, lines start to break apart. If it is too large, adjacent lines get connected, which can be seen at $250$ between the \emph{h} and the \emph{o}.}
+  \label{fig:skeletonizationThresholdStudy}
+\end{figure}
+
+
+It is very easy to generate a dataset that maps blurred skeletons to sharp skeletons. Therefore, it was natural that the first approach to achieve a de-blurring was to train yet another pix2pix network. This idea was quickly discarded for a multitude of reasons.
+For one, as already expected, the network didn't converge well and produced a lot of artifacts. But what was even more important, it didn't create perfect skeletons but instead generated a lot of interruptions and line duplications.
+
+For a skeleton to be useful for handwriting analysis, it must consist of uninterrupted lines that represent the real movement of the pen. Interruptions or redundant lines would create a major problem later on, as they would completely change the perceived writing style of the handwriting generator.
+
+The best working solution turned out to be simple thresholding (foreground $< 215$) followed by morphological thinning~\cite{thinning}.
+The threshold value was determined empirically. If it is too low, line segments become interrupted, and if it is too high, distinct line segments `meld' together, as seen in \cref{fig:skeletonizationThresholdStudy}.
+
+
+
+Nonetheless, the number can be backed up numerically: The goal of a de-blurring is to reconstruct a real skeleton without losing detail, which means that single pixels in the original skeleton should be conserved, but adjacent lines should not get merged. Therefore, we want the threshold to be as low as possible without losing single pixels.
+If we filter a single black pixel ($=0$) on a white background ($=255$) with the same gaussian filter we applied to the skeleton masks, the black pixel gets the value $213$, which means a thresholding of $215$ is about as low as possible for still preserving single pixels.
+
+\subsubsection{Scaling to variable-sized images}
+
+Pix2pix is intended to map a $256\times256$ image to a $256\times256$ image. It was never designed to handle variable input sizes, and the authors~\cite{pix2pix} never mentioned any research efforts regarding this issue. Nonetheless, \gls{pix2pix} is a completely convolutional encoder-decoder network and none of its layers has a hardcoded size, therefore the \gls{pix2pix} network can theoretically handle all sizes that are multiples of $256$.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.9\textwidth]{../assets/pix2pixScaling.pdf}
+  \caption[Information flow in a pix2pix network]{Information flow in a \gls{pix2pix} network. \emph{Left}: input image with correct size; \emph{Right}: oversized input image. Without loss of generality, this depiction shows a simplified \gls{pix2pix} network with a depth of two layers and only one feature per layer, operating on one-dimensional images, without skip connections. Every highlighted cell depends on the leftmost pixel of the input image. On the right side, the oversized output image contains pixels that don't depend on the leftmost input pixel, which shows that no global information flow exists.}
+  \label{pix2pixScaling}
+\end{figure}
+
+The only exception is the innermost layer, which is expected to have a fixed size of $1\times1$. This is the layer where all the global information gets gathered and made available to the entire output image.
+By increasing the image size beyond 256 pixels, this global communication channel gets lost, and it is not possible to propagate information from one border of the input image to the opposite border of the output image anymore, as demonstrated in \cref{pix2pixScaling}. There are multiple ways to account for that. For example, an additional convolutional or fully connected layer could be added, but that would only change the output size statically and would require retraining for every single image size. A more practical approach would be to gather the information of the innermost layer via a maximum or mean operation, and then distribute that data back to the necessary shape, re-enabling that global information flow.
+
+Unexpectedly, in practice it looks like skeletonization with \gls{pix2pix} doesn't require any global information exchange, and an unmodified \gls{pix2pix} network turned out to be absolutely sufficient for the task. Several reasons would support those findings. Skeletons don't contain any non-positional meta information, like style, color or similar, and therefore the encoder strives to strip that information from the input image. Therefore, after the encoder step, all information that is left is positional data, and global information exchange would not be beneficial in any way.
+
+The only difference between a trained $256\times256$ network and a size-agnostic network is that former network expects to find zero-paddings on all sides of the filters, and might produce artifacts if it doesn't. Therefore it is necessary to re-train the network with images that are definitely bigger than the perceptual range of the output pixels. In our case, we chose an image size of $2048\times256$. The reasoning behind only increasing the image width is that we decided to make the images only variable in the horizontal direction and keep the vertical direction fixed to 256 pixels, as we don't scale our inputs and limit the skeletonization to a single line of text.
+
+Nevertheless, we later discovered that the skeletonization network turned out to be size agnostic in both directions anyway.
+
+
+
+\subsection{Experiments}
+\subsubsection{CycleGAN}
+
+As we did not have annotated data, our first attempt to train a skeletonizer was by utilizing \gls{CycleGAN}.
+
+\begin{figure}
+  \centering
+  \subfloat[skeleton]{
+  	\hspace{0.07\textwidth}
+  	\includegraphics[width=0.3\textwidth]{../assets/skeletonization/cyclegan_fail/epoch004_real_A_crop.png}
+  	\hspace{0.07\textwidth}
+  }
+  \subfloat[synthetic image, produced by \gls{CycleGAN}]{
+  	\hspace{0.07\textwidth}
+  	\includegraphics[width=0.3\textwidth]{../assets/skeletonization/cyclegan_fail/epoch004_fake_B_crop.png}
+  	\hspace{0.07\textwidth}
+  }
+  \caption[Dominant failure mode of the CycleGAN based skeleteonization]{Dominant failure mode of the \gls{CycleGAN} based skeletonization. While certain similarities still exist, the network completely disregarded some lines and replaced them with others.}
+  \label{fig:cycleGanFail}
+\end{figure}
+
+Sadly, the \gls{CycleGAN} failed for a pretty simple and, in hindsight, obvious reason: Nobody told it to only change the line- and background style of the image, but not the content. The training datasets were CVL~\cite{cvl} for real offline data and a gaussian filtered rendering of the IAM-Online~\cite{iam-online} dataset for skeleton data. The writers of those datasets were different people, and once the \gls{gan} loss picked up on that fact, \gls{CycleGAN} started to modify the writing style of the text and to creatively add and move lines. This can be clearly seen in \cref{fig:cycleGanFail} and renders this approach futile.
+
+It was apparent that the network solved its task, but the task wasn't specified correctly. It missed some crucial information, some \emph{guidance} that showed the network what we actually wanted instead of letting it guess based on non-annotated data. For this reason, we utilized the multi-step knowledge transfer method.
+
+\subsubsection{Multi-step approach using pix2pix}
+
+The idea of cyclic consistency is still applicable, but it is apparent that the training needs additional guidance. \newpage To achieve that, we apply the iterative knowledge transfer method as already described in \cref{iterativeTransfer}, consisting of the following steps:
+
+\begin{enumerate}
+\item Skeletonization of CVL using traditional techniques
+\item Training of an inverse mapping with \gls{pix2pix}
+\item Applying the inverse mapping to IAM-Online
+\item Training of a \gls{pix2pix} mapping of generated `fake' CVL-like data to real IAM-Online skeletons
+\end{enumerate}
+
+It should be noted that all \gls{pix2pix} networks are trained on artificial input data and real output data. This should lead to network outputs being as close to real data as possible.
+
+\subsubsection{Skeletonization of CVL using traditional techniques}
+The first step is to create a rough, error-prone skeleton dataset from CVL, to act as a guideline for the next steps. While having an error-prone dataset is generally not desirable, it is tolerable in this case as the errors are expected to be hidden in the generalization process of the following training steps.
+
+The skeletonization of CVL was done in the following manner:
+
+\begin{enumerate}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item Thresholding (foreground if any color $<240$)
+\item Opening with cross shape of radius 1
+\item Closing with cross shape of radius 1
+\item Skeletonization with Zhang's algorithm~\cite{skeletonize}
+\end{enumerate}
+
+
+\begin{figure}
+  \centering
+  \subfloat[real input image]{
+  	\includegraphics[width=0.4\textwidth]{../assets/skeletonization/net1_inverse/primitive_fail_in.png}
+  }
+  \hspace{0.07\textwidth}
+  \subfloat[primitive skeletonization]{
+  	\includegraphics[width=0.4\textwidth]{../assets/skeletonization/net1_inverse/primitive_fail_out.png}
+  }
+  \caption[Typical failure modes of the primitive skeletonization]{Typical failure modes of the primitive skeletonization. Note the broken lines at the \emph{t}, the merged lines at the \emph{e} and the removed detail and cut corner at the \emph{f}.}
+  \label{fig:primitiveFail}
+\end{figure}
+
+
+The resulting skeletons are erroneous, as expected. Typical failure modes are, as seen in \cref{fig:primitiveFail}:
+\begin{itemize}[topsep=0pt,itemsep=-1ex,partopsep=1ex,parsep=1ex]
+\item Merging of adjacent lines
+\item Braking apart of continuous lines at intersections
+\item Removal of details
+\item Cutting corners
+\end{itemize}
+
+
+\subsubsection{Training of an inverse mapping with pix2pix}
+
+With this first annotated dataset, we can attempt to force generalization by training the inverse mapping. The idea is to train a network to produce realistic CVL-like images. Even with erroneous skeleton data, it will keep producing realistic CVL-like images if we feed it with real skeleton data.
+
+As already discussed, the network of choice is \gls{pix2pix}, to be more precise, its PyTorch implementation~\cite{pix2pixPytorch}. At the time of writing, there were multiple incompatibilities of this implementation with our version of Python(3.6.8) and PyTorch(1.1.0). Therefore, we created a fork and fixed the issues. This is the implementation of \gls{pix2pix} that we will use in all our experiments~\cite{pix2pixFixed}. 
+
+The training process itself was straightforward and without further complications. Random flips were disabled because handwritten text is directional. To further improve results, random scaling was disabled. For one, generalizing to arbitrary scales caused the output to degrade, but more importantly, skeletons do not carry information about line thickness, and thus having a constant scale is important for the mapping process to succeed.
+Input images were of size $2048\times256$.
+
+It is to be noted, though, that the output images are not connected to the style of the training images by any means, therefore the style of the output images is randomly determined by the dropout of the network, as described in the \gls{pix2pix} paper~\cite{pix2pix}.
+This is not a problem for now as we don't need to reproduce any style to generate a skeletonization dataset, but it will become relevant in \cref{chapter:imageStyleTransfer}.
+
+\begin{figure}
+  \centering
+  \subfloat[real input image]{
+  	\hspace{0.06\textwidth}
+  	\includegraphics[width=0.10\textwidth]{../assets/skeletonization/net1_inverse/real_B_crop_large.png}
+  	\hspace{0.06\textwidth}
+  }
+  \subfloat[primitive skeletonization]{
+  \hspace{0.06\textwidth}
+  	\includegraphics[width=0.10\textwidth]{../assets/skeletonization/net1_inverse/real_A_crop_large.png}
+  \hspace{0.06\textwidth}
+  }
+  \subfloat[trained network result]{
+  	\hspace{0.06\textwidth}
+  	\includegraphics[width=0.10\textwidth]{../assets/skeletonization/net1_inverse/fake_B_crop_large.png}
+  	\hspace{0.06\textwidth}
+  }
+  \caption[Results of the inverse training of the skeletonization]{Results of the inverse training of the skeletonization. The mismatched style is intended, as the network does not contain a direct style transfer. Note how the primitive skeletonization broke the bottom part of the \emph{y}, and the network learned to correct that mistake.}
+  \label{fig:invSkeletonResult}
+\end{figure}
+
+The training process converged without any issues, and results of the trained network can be seen in \cref{fig:invSkeletonResult}. The network even learned to mitigate the errors of the primitive skeletonization, as we intended.
+
+\subsubsection{Applying the inverse mapping to IAM-Online}
+
+We now have a network that is trained to map from less-than-perfect skeletons to realistic CVL-like images. We can apply that network to real skeleton data that we generated from the IAM-Online dataset. There was the possibility that the network might create undesired artifacts on real skeleton data, as it only saw erroneous skeletons so far, but this turned out not to be the case.
+
+On the contrary, the generated CVL-like data matched the input skeletons closely, which allowed us to create a dataset that mapped real skeletons to their respective generated CVL-like representation. This dataset will be the basis for the final training step.
+
+\subsubsection{Training of the actual skeletonization network}
+
+Armed with a dataset that maps CVL-like data to real skeletons, we were finally able to train a network to do the actual skeletonization.
+
+As before, we trained the network on images of size $2048 \times 256$.
+
+As the training inputs of this network are generated, we took the opportunity to add noise and variation to the training input to make the resulting network more robust.
+In our case, we augmented the training input samples with random resize and cropping, additive gaussian noise with a random standard deviation of $0$ to $0.3$, random grayscale transformation and random variations in brightness ($0.5$), contrast ($0.5$), saturation ($0.3$) and hue ($0.2$).
+
+\begin{figure}
+  \centering
+  \subfloat[real skeleton]{
+  	\hspace{0.05\textwidth}
+  	\includegraphics[width=0.13\textwidth]{../assets/skeletonization/net2_skeletonize/real_B_crop_large.png}
+  	\hspace{0.05\textwidth}
+  }
+  \subfloat[synthetic image]{
+  \hspace{0.05\textwidth}
+  	\includegraphics[width=0.13\textwidth]{../assets/skeletonization/net2_skeletonize/real_A_crop_large.png}
+  \hspace{0.05\textwidth}
+  }
+  \subfloat[trained network result]{
+  	\hspace{0.05\textwidth}
+  	\includegraphics[width=0.13\textwidth]{../assets/skeletonization/net2_skeletonize/fake_B_crop_large.png}
+  	\hspace{0.05\textwidth}
+  }
+  \caption[Error correction by generalization]{Error correction by generalization. (a) is a real skeleton image, taken from IAM-Online. (b) is a CVL-like image, generated from the real skeleton using the previously trained inverse network, followed by augmentation. (c) is the skeletonized version of (b), as produced by the trained skeletonization network. Notice the details of the \emph{e}, which the inverse network failed to reproduce correctly. Nonetheless, the skeletonization network generalized well enough to match (b) without overfitting on its training image (a).}
+  \label{fig:skeletonizeTrainResult}
+\end{figure}
+
+The network generalized so well that it was able to correct most of the mistakes of the inverse network, as seen in \cref{fig:skeletonizeTrainResult}. This resulted in a \gls{pix2pix} network with the ability to robustly detect strokes of handwriting in various image conditions.
+
+
+\section{Results}
+
+
+As there are no real metrics to compare skeletonization results, we rely on visual perception to judge the result of our method. As the human vision is easily fooled, it is important to analyze both positive and negative aspects of the results.
+
+To start off with the positive aspects: The knowledge transfer process definitely improved the quality of the skeletonization against the primitive approach, as seen in \cref{fig:skeletonizationQualitativeComparison}.
+
+
+\begin{figure}[H]
+  \centering
+  \subfloat[CVL input data]{
+  	\includegraphics[width=0.32\textwidth]{../assets/skeletonization/comparison_pix2pix/0002-1-4_orig_crop.png}
+  }
+  \subfloat[primitive skeletonization]{
+  	\includegraphics[width=0.32\textwidth]{../assets/skeletonization/comparison_pix2pix/0002-1-4_skel_prim_crop.png}
+  }
+  \subfloat[learned skeletonization]{
+  	\includegraphics[width=0.32\textwidth]{../assets/skeletonization/comparison_pix2pix/0002-1-4_skel_nn_crop.png}
+  }
+  \caption[Qualitative comparison between primitive and learned skeletonization]{Qualitative comparison between primitive and learned skeletonization}
+  \label{fig:skeletonizationQualitativeComparison}
+\end{figure}
+
+The network learned to mitigate most of the errors of the primitive skeletonization. The superfluous line in the left word is gone and the long line of the \emph{k} is straight. The artifacts in the \emph{s} and \emph{n} are mostly corrected. Also notice the small dot below the text, which must be a stain on the paper. Skeletonization based on thresholding has major problems with paper stains, but the network correctly identified it as not part of the text and removed it.
+
+Furthermore, because we trained the network with color and noise augmentation, it turned out to be quite robust towards noise in the image. This is especially useful in our use case, as small salt-and-pepper noise in the skeleton image would be a major problem for the writer style transfer in the following chapters.
+
+
+\begin{figure}[H]
+  \centering
+  
+  \includegraphics[width=0.65\textwidth]{../assets/skeletonization/compare_fail/fail_table.pdf}
+  
+  \caption[Typical failure modes of the final skeletonization network]{Typical failure modes of the final skeletonization network. From top to bottom: input image, skeletonization network output, final skeleton after deblurring. (a) and (b) show that crossing lines tend to be broken apart. (c) shows the loss of detail by over-smoothing. (d) shows another example where crossing lines get broken apart at the \emph{e} and merged lines at the \emph{h}, caused by the deblurring step. (e) shows a combination of them. The \emph{h} gets distorted by both the network and the deblurring step, and the \emph{e} ends up touching the \emph{h}.}
+  \label{fig:skeletonizationTableOfFailures}
+\end{figure}
+
+
+Nonetheless, the network is not perfect. It still makes mistakes, and it seems that some problems carried over from the naive implementation. One of the problems was the merging of lines, which becomes especially noticeable when two lines cross at a shallow angle. This problem partially carried over from the naive skeletonization, which shows that the generalization was not perfect yet. The other mistakes are mostly based on the mixing of adjacent lines or over-smoothing, which are typical problems of \glspl{cnn} in general. Examples of those errors can be seen in \cref{fig:skeletonizationTableOfFailures}.
+
+This brings us to the last part of the skeletonization: the de-blurring. As neural network deblurring did not achieve satisfactory results, we had to resort back to traditional algorithms. As discussed, the method we ended up using was thresholding followed by thinning.
+
+Sadly, this reintroduced some of the artifacts we have seen earlier. While it is better and a lot more robust than the direct thresholding without the neural network, the thresholding mitigates a lot of the quality that we get from the network. Those artifacts directly influence the quality of the next step, the writer style transfer. Therefore the skeletonization step remains one of the biggest potential improvements for future work.
+

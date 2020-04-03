@@ -1,0 +1,101 @@
+\NeedsTeXFormat{LaTeX2e}[1999/12/01]
+\ProvidesPackage{beamertools}[2012/08/08 v1.0 Tools for beamer]%
+
+\RequirePackage{etoolbox}
+
+\addto\extrasngerman{%
+  \def\outlinename{Agenda}
+  \def\insertcontinuationtext{(Forts.)}
+}
+
+\addto\extrasenglish{%
+  \def\outlinename{Outline}
+}
+
+\addto\extrasamerican{%
+  \def\outlinename{Outline}
+}
+
+\newcommand<>{\hidefootline}{%
+  \setbeamertemplate{footline}[default]%
+}
+
+\newcommand<>{\showfootline}{%
+  \setbeamertemplate{footline}[author title institute]%
+}
+
+\newcommand<>{\beamertools@makeoutline}[1][]{%
+  \begin{frame}
+    \frametitle<presentation>{\outlinename}
+    \tableofcontents[#1,section,hideallsubsections]%
+  \end{frame}%
+}
+
+\newcommand<>{\makeoutline}{%
+  \begingroup
+    \mode<beamer>{%
+      \pdfbookmark[2]{\outlinename}{outline}
+    }
+    \beamertools@makeoutline
+  \endgroup
+}
+
+\newcommand{\makepartpage}{%
+  \begingroup
+    \hidefootline
+    \frame{\partpage}
+  \endgroup
+}
+
+% Outline with current section being emphasized
+\newcommand<>{\currentoutline}{%
+  \beamertools@makeoutline[currentsection]%
+}
+
+\defbeamertemplate{footline}{frame number only}{%
+  \hfill%
+  \usebeamercolor[fg]{page number in head/foot}%
+  \usebeamerfont{page number in head/foot}%
+  \insertframenumber\kern1ex\vskip1.1ex%
+}
+
+\newcommand{\showoutlinetransitions}{%
+  \AtBeginSection[]{%
+    \mode<presentation>{\currentoutline}%
+  }%
+}
+
+\newcommand<>{\makepartoutline}[3][]{%
+  \begingroup%
+    \let\oldoutlinename\outlinename
+    \def\outlinename{%
+      \oldoutlinename\ \partname~\uppercase\expandafter{\romannumeral#2}: #3%
+    }
+    \beamertools@makeoutline[part=#2,#1]%
+  \endgroup
+}
+
+\newcommand<>{\framenumbering}[1]{%
+  \gdef\insertframenumber{\csname @#1\endcsname\c@framenumber}
+}
+
+\newcommand<>{\frontmatter}{%
+  \hidefootline%
+  \framenumbering{roman}
+}
+
+\newcommand<>{\mainmatter}{%
+  \showfootline%
+  \setcounter{framenumber}{0} % Reset numbering
+  \framenumbering{arabic}
+}
+
+\newcommand<>{\backmatter}{%
+  \hidefootline%
+}
+
+\newcommand<>{\stopframeregistration}{%
+  \renewcommand\addtocontents[2]{}%
+}
+
+\AtBeginDocument{\showfootline}
